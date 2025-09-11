@@ -5,9 +5,9 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 
-// Import pages
 import Home from './screens/Home';
 import Library from './screens/Library';
+
 
 const Tab = createBottomTabNavigator();
 
@@ -36,7 +36,6 @@ export default function App() {
   );
 }
 
-// Custom Tab Bar
 function MyTabBar({ state, descriptors, navigation }) {
   return (
     <View style={styles.tabBar}>
