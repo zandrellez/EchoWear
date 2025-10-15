@@ -1,65 +1,63 @@
-import React, { useEffect, useState } from "react";
-import { SafeAreaView, Text, Button, StyleSheet } from "react-native";
-import { loadTensorflowModel } from "react-native-fast-tflite";
+// hooks/useGloveModel.js
+import { useState, useEffect, useRef } from 'react';
+import { loadTensorflowModel } from 'react-native-fast-tflite';
+import labelMap from '../../assets/models/labels.json'; // adjust path as needed
 
-export default function App() {
+export default function useGloveModel() {
   const [model, setModel] = useState(null);
-  const [output, setOutput] = useState(null);
+  const [prediction, setPrediction] = useState('Loading model...');
+  const [loading, setLoading] = useState(true);
+  const intervalRef = useRef(null);
 
   useEffect(() => {
-    async function loadModel() {
+    const loadModel = async () => {
       try {
-        // ✅ Load MobileNetV2 example model (bundled asset, not via HTTP)
         const loadedModel = await loadTensorflowModel(
-          require("./assets/models/1.tflite")
+          require('../../assets/models/EchoWear.tflite')
         );
+        console.log('✅ Model loaded successfully');
         setModel(loadedModel);
-        console.log("✅ Model loaded successfully.");
+        setLoading(false);
       } catch (error) {
-        console.error("❌ Failed to load model:", error);
+        console.error('❌ Error loading model:', error);
+        setPrediction('Error loading model');
+        setLoading(false);
       }
-    }
+    };
+
     loadModel();
   }, []);
 
-  const runInference = async () => {
-    if (!model) {
-      console.warn("Model not loaded yet");
-      return;
-    }
+  useEffect(() => {
+    if (!model) return;
 
-    try {
-      // ✅ Input shape is [1, 224, 224, 3]
-      const inputSize = 224 * 224 * 3;
-      const input = new Float32Array(inputSize).fill(0.5); // dummy normalized image data
+    const featureCount = 9; // number of glove sensor values per timestep
+    const timesteps = 10; // sequence length used during training
 
-      // ✅ IMPORTANT: wrap input in an array (RN Fast TFLite expects array of inputs)
-      const result = await model.run([input]);
+    const runPrediction = () => {
+      try {
+        // 🧤 Simulated glove input — replace this with real sensor data later
+        const input = new Float32Array(1 * timesteps * featureCount).map(
+          () => Math.random()
+        );
 
-      console.log("✅ Model output:", result);
-      setOutput(result);
-    } catch (err) {
-      console.error("❌ Inference error:", err);
-    }
-  };
+        const output = model.runSync([input]);
+        const predictionTensor = output[0];
+        const maxIndex = predictionTensor.indexOf(Math.max(...predictionTensor));
+        const predictedLabel = labelMap[maxIndex] || 'Unknown';
 
+        setPrediction(predictedLabel);
+      } catch (err) {
+        console.error('Error running model:', err);
+      }
+    };
 
+    intervalRef.current = setInterval(runPrediction, 2000);
 
-  return (
-    <SafeAreaView style={styles.container}>
-      <Text style={styles.title}>🧠 Fast TFLite Demo</Text>
-      <Button title="Run Inference" onPress={runInference} />
-      {output && (
-        <Text style={styles.output}>
-          Output length: {Array.isArray(output) ? output.length : "?"}
-        </Text>
-      )}
-    </SafeAreaView>
-  );
+    return () => {
+      clearInterval(intervalRef.current);
+    };
+  }, [model]);
+
+  return { prediction, loading, modelReady: !!model };
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: "center", alignItems: "center", padding: 20 },
-  title: { fontSize: 22, fontWeight: "bold", marginBottom: 20 },
-  output: { marginTop: 20, fontSize: 16 },
-});
