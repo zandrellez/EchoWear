@@ -5,13 +5,12 @@ import {
   StyleSheet,
   TouchableOpacity,
   Animated,
-  Easing,
-  ScrollView,
   ActivityIndicator,
   Modal,
   Image,
   TextInput,
   Alert,
+  PermissionsAndroid,
   Platform,
   Dimensions,
   StatusBar,
@@ -20,14 +19,16 @@ import {
   TouchableWithoutFeedback,
   KeyboardAvoidingView,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { BleManager, State } from 'react-native-ble-plx';
 import Constants from "expo-constants";
-import { loadTensorflowModel } from 'react-native-fast-tflite';
 
 import useGloveModel from '../components/Model';
+import { useTextToSpeech } from '../components/useTextToSpeech';
 import useSpeechToText from '../components/useSpeechToText'; 
+import { Buffer } from "buffer";
+
 
 const { width } = Dimensions.get("window");
 const STATUSBAR_HEIGHT = Platform.OS === "ios" ? Constants.statusBarHeight : StatusBar.currentHeight || 0;
@@ -48,8 +49,36 @@ export default function Home() {
   const [isScanning, setIsScanning] = useState(false);
   const [devices, setDevices] = useState([]);
   const [selectedDevice, setSelectedDevice] = useState(null);
+  // Store live glove sensor data
+  const [gloveData, setGloveData] = useState("Waiting for data...");
+
+  
+  const { speak, stop, isSpeaking } = useTextToSpeech();
 
   const { prediction, loading: modelLoading } = useGloveModel();
+
+  async function requestBluetoothPermissions() {
+    if (Platform.OS === "android") {
+      if (Platform.Version >= 31) {
+        const granted = await PermissionsAndroid.requestMultiple([
+          PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
+          PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        ]);
+        return (
+          granted["android.permission.BLUETOOTH_SCAN"] === PermissionsAndroid.RESULTS.GRANTED &&
+          granted["android.permission.BLUETOOTH_CONNECT"] === PermissionsAndroid.RESULTS.GRANTED
+        );
+      } else {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
+        );
+        return granted === PermissionsAndroid.RESULTS.GRANTED;
+      }
+    } else {
+      return true;
+    }
+  }
 
   // Use our custom speech-to-text hook
   const {
@@ -100,6 +129,12 @@ export default function Home() {
 
   // BLE scanning
   const handleScanDevices = async () => {
+    const hasPermission = await requestBluetoothPermissions();
+    if (!hasPermission) {
+      Alert.alert("Bluetooth permission needed", "Please grant Bluetooth access.");
+      return;
+    }
+
     const btState = await manager.state();
     if (btState !== State.PoweredOn) {
       Alert.alert("Bluetooth is Off", "Please enable Bluetooth to scan for devices.", [{ text: "OK" }]);
@@ -132,6 +167,24 @@ export default function Home() {
     try {
       const connectedDevice = await manager.connectToDevice(device.id);
       await connectedDevice.discoverAllServicesAndCharacteristics();
+      // Add this right after discovery
+      const CHARACTERISTIC_UUID = "beb5483e-36e1-4688-b7f5-ea07361b26a8"; 
+      connectedDevice.monitorCharacteristicForService(
+        SERVICE_UUID,
+        CHARACTERISTIC_UUID,
+        (error, characteristic) => {
+          if (error) {
+            console.log("Monitor error:", error);
+            return;
+          }
+
+          if (characteristic?.value) {
+            const raw = Buffer.from(characteristic.value, "base64").toString("utf8");
+            console.log("BLE Data:", raw);
+            setGloveData(raw);
+          }
+        }
+      );
 
       setIsConnected(true); 
       setShowBluetoothModal(false);
@@ -220,7 +273,7 @@ export default function Home() {
 
             {/* Main content */}
             <View style={{flex: 1,}}>
-              {/*{{!isConnected ? (
+              {!isConnected ? (
                 <>
                   <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
                     <TouchableOpacity
@@ -255,7 +308,7 @@ export default function Home() {
                   </View>
                 </>
               ) : (
-                <> */}
+                <>
                   <View style={{ flex: 1 }}>
                     {/* Device Card */}
                     <View style={[styles.deviceCard, { flex: 1 }]}>
@@ -302,14 +355,39 @@ export default function Home() {
                     <View style={[styles.translationCard, { flex: 4 }]}>
                       <View style={styles.translationTextContainer}>
                         <Text style={styles.translationText}>FSL to Speech</Text>
+                        {/* Show live BLE data instead of prediction for now */}
                         <Text style={styles.translationPrompt}>
-                          {modelLoading
-                            ? 'Loading AI Model...'
-                            : prediction || 'Waiting for glove input...'}
+                          {isConnected ? gloveData : 'Waiting for glove input...'}
                         </Text>
+
+                        {/* Optional: Split and show individual flex values */}
+                        {isConnected && (() => {
+                          const parsedData = gloveData.split(',').map(v => v.trim());
+                          return (
+                            parsedData.length >= 5 && (
+                              <View style={{ marginTop: 10 }}>
+                                <Text>Thumb: {parsedData[0]}</Text>
+                                <Text>Index: {parsedData[1]}</Text>
+                                <Text>Middle: {parsedData[2]}</Text>
+                                <Text>Ring: {parsedData[3]}</Text>
+                                <Text>Pinky: {parsedData[4]}</Text>
+                              </View>
+                            )
+                          );
+                        })()}
                       </View>
 
-                      <TouchableOpacity style={styles.translationPlayButton}>
+                      <TouchableOpacity
+                        style={styles.translationPlayButton}
+                        onPress={() => {
+                          if (prediction && !modelLoading) {
+                            speak(prediction);
+                          } else {
+                            Alert.alert('Nothing to speak', 'No translation available yet.');
+                          }
+                        }}
+                        disabled={isSpeaking}
+                      >
                         <Ionicons name="play" size={32} color="#E53935" />
                       </TouchableOpacity>
                     </View>
@@ -365,8 +443,8 @@ export default function Home() {
                     </View>
 
                   </View>
-                {/* </> 
-              )}*/}
+                </> 
+              )}
             </View>
           </View>
         </TouchableWithoutFeedback>

@@ -1,7 +1,7 @@
 // hooks/useGloveModel.js
 import { useState, useEffect, useRef } from 'react';
 import { loadTensorflowModel } from 'react-native-fast-tflite';
-import labelMap from '../../assets/models/labels.json'; // adjust path as needed
+import labelMap from '../../assets/models/labels.json'; 
 
 export default function useGloveModel() {
   const [model, setModel] = useState(null);
@@ -31,9 +31,9 @@ export default function useGloveModel() {
   useEffect(() => {
     if (!model) return;
 
-    const featureCount = 9; // number of glove sensor values per timestep
-    const timesteps = 10; // sequence length used during training
-
+    const featureCount = 9; 
+    const timesteps = 10; 
+    
     const runPrediction = () => {
       try {
         // 🧤 Simulated glove input — replace this with real sensor data later
