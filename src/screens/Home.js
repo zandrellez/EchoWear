@@ -18,6 +18,7 @@ import {
   Keyboard,
   TouchableWithoutFeedback,
   KeyboardAvoidingView,
+  Easing
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
@@ -32,9 +33,9 @@ import { Buffer } from "buffer";
 
 const { width } = Dimensions.get("window");
 const STATUSBAR_HEIGHT = Platform.OS === "ios" ? Constants.statusBarHeight : StatusBar.currentHeight || 0;
-
 const HEADER_HEIGHT = 60;
 const BOTTOM_TAB_HEIGHT = 60;
+
 const manager = new BleManager();
 const SERVICE_UUID = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
 
@@ -49,12 +50,10 @@ export default function Home() {
   const [isScanning, setIsScanning] = useState(false);
   const [devices, setDevices] = useState([]);
   const [selectedDevice, setSelectedDevice] = useState(null);
-  // Store live glove sensor data
   const [gloveData, setGloveData] = useState("Waiting for data...");
 
   
   const { speak, stop, isSpeaking } = useTextToSpeech();
-
   const { prediction, loading: modelLoading } = useGloveModel();
 
   async function requestBluetoothPermissions() {
@@ -80,7 +79,6 @@ export default function Home() {
     }
   }
 
-  // Use our custom speech-to-text hook
   const {
     startRecording,
     stopRecording,
@@ -89,28 +87,46 @@ export default function Home() {
     isRecording,
   } = useSpeechToText();
 
+  const [isTyping, setIsTyping] = useState(false); 
+  const [textValue, setTextValue] = useState(''); 
+  const [manualText, setManualText] = useState(''); 
+  const [displayedText, setDisplayedText] = useState('');
+
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    if (isRecording) {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(scaleAnim, {
-            toValue: 1.3,
-            duration: 600,
-            useNativeDriver: true,
-          }),
-          Animated.timing(scaleAnim, {
-            toValue: 1,
-            duration: 600,
-            useNativeDriver: true,
-          }),
-        ])
-      ).start();
-    } else {
-      scaleAnim.setValue(1);
-    }
+  if (isRecording) {
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(scaleAnim, {
+          toValue: 1.15,
+          duration: 500,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(scaleAnim, {
+          toValue: 1,
+          duration: 500,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    pulse.start();
+    return () => pulse.stop();
+  } else {
+    scaleAnim.setValue(1);
+  }
   }, [isRecording]);
+
+  const handleTextToggle = () => {
+    if (isTyping) {
+      if (manualText.trim().length > 0) {
+        setDisplayedText(manualText.trim());
+      }
+    }
+    setIsTyping((prev) => !prev);
+  };
 
 
   const dismissKeyboard = () => {
@@ -127,7 +143,6 @@ export default function Home() {
     };
   }, []);
 
-  // BLE scanning
   const handleScanDevices = async () => {
     const hasPermission = await requestBluetoothPermissions();
     if (!hasPermission) {
@@ -167,7 +182,6 @@ export default function Home() {
     try {
       const connectedDevice = await manager.connectToDevice(device.id);
       await connectedDevice.discoverAllServicesAndCharacteristics();
-      // Add this right after discovery
       const CHARACTERISTIC_UUID = "beb5483e-36e1-4688-b7f5-ea07361b26a8"; 
       connectedDevice.monitorCharacteristicForService(
         SERVICE_UUID,
@@ -220,6 +234,7 @@ export default function Home() {
       >
         <TouchableWithoutFeedback onPress={dismissKeyboard} accessible={false}>
           <View style={{ flex: 1 }}>
+
             {/* Header */}
             <View style={styles.header}>
               <Image
@@ -233,10 +248,13 @@ export default function Home() {
             <Modal visible={showBluetoothModal} transparent animationType="fade" onRequestClose={handleCloseModal}>
               <View style={styles.modalOverlay}>
                 <View style={styles.modalCard}>
-                  <Text style={styles.modalTitle}>Nearby Devices</Text>
+                  {/* Header */}
+                  <View style={styles.modalHeader}>
+                    <Text style={styles.modalTitle}>Nearby Devices</Text>
+                    {isScanning && <ActivityIndicator size="small" color="#E53935" style={{ marginLeft: 8 }} />}
+                  </View>
 
-                  {isScanning && <ActivityIndicator size="large" color="#E53935" style={{ marginVertical: 20 }} />}
-
+                  {/* Device List */}
                   {devices.length > 0 ? (
                     <FlatList
                       style={{ maxHeight: 250, width: '100%' }}
@@ -258,21 +276,28 @@ export default function Home() {
                   ) : !isScanning && (
                     <View style={{ alignItems: 'center', marginVertical: 20 }}>
                       <Text style={{ color: '#777', marginBottom: 10 }}>No devices found</Text>
-                      <TouchableOpacity style={styles.retryButton} onPress={handleScanDevices}>
-                        <Text style={styles.retryButtonText}>Scan Again</Text>
-                      </TouchableOpacity>
                     </View>
                   )}
 
-                  <TouchableOpacity style={styles.closeButton} onPress={handleCloseModal}>
-                    <Text style={styles.closeButtonText}>Close</Text>
-                  </TouchableOpacity>
+                  {/* Footer */}
+                  <View style={styles.modalFooter}>
+                    {!isScanning && devices.length === 0 && (
+                      <TouchableOpacity style={[styles.retryButton, { marginRight: 10 }]} onPress={handleScanDevices}>
+                        <Text style={styles.retryButtonText}>Scan Again</Text>
+                      </TouchableOpacity>
+                    )}
+                    <TouchableOpacity style={styles.closeButton} onPress={handleCloseModal}>
+                      <Text style={styles.closeButtonText}>Close</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </View>
             </Modal>
 
+
             {/* Main content */}
             <View style={{flex: 1,}}>
+              {/* --START--
               {!isConnected ? (
                 <>
                   <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
@@ -309,7 +334,10 @@ export default function Home() {
                 </>
               ) : (
                 <>
+
+                -- END -- */}
                   <View style={{ flex: 1 }}>
+
                     {/* Device Card */}
                     <View style={[styles.deviceCard, { flex: 1 }]}>
                       <Image
@@ -392,39 +420,51 @@ export default function Home() {
                       </TouchableOpacity>
                     </View>
 
-
                     {/* Speech to Text Card */}
                     <View style={[styles.speechCard, { flex: 4 }]}>
                       <View style={styles.speechTextContainer}>
                         <Text style={styles.speechTitle}>Speech to Text</Text>
 
-                        <Text style={styles.speechPrompt}>
-                          {loading
-                            ? 'Transcribing...'
-                            : transcript || 'Press the button to start voice recognition'}
-                        </Text>
+                        {isTyping ? (
+                          <TextInput
+                            style={styles.textInput}
+                            placeholder="Type your text here..."
+                            value={manualText}
+                            onChangeText={setManualText}
+                            autoFocus
+                            multiline
+                          />
+                        ) : (
+                          <Text style={styles.speechPrompt}>
+                            {loading
+                              ? 'Transcribing...'
+                              : transcript || displayedText || 'Press the button to start voice recognition'}
+                          </Text>
+                        )}
                       </View>
 
                       <View style={styles.rightColumn}>
-                        <TouchableOpacity style={{ marginBottom: 10 }}>
-                          <MaterialIcons name="text-fields" size={28} color="gray" />
+                        {/* Toggle Text Input */}
+                        <TouchableOpacity onPress={handleTextToggle} style={{ marginBottom: 10 }}>
+                          <MaterialIcons
+                            name="text-fields"
+                            size={28}
+                            color={isTyping ? '#E53935' : 'gray'}
+                          />
                         </TouchableOpacity>
 
-                        {!keyboardVisible && (
+                        {/* Mic Button */}
+                        {!keyboardVisible && !isTyping && (
                           <Animated.View
-                            style={{
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              backgroundColor: '#E53935', // Always red
-                              borderRadius: 50,
-                              padding: 18,
-                              transform: [{ scale: scaleAnim }],
-                              shadowColor: '#E53935',
-                              shadowOffset: { width: 0, height: 0 },
-                              shadowOpacity: isRecording ? 0.9 : 0.4,
-                              shadowRadius: isRecording ? 20 : 5,
-                              elevation: isRecording ? 20 : 5,
-                            }}
+                            style={[
+                              styles.micButtonAnimated,
+                              {
+                                transform: [{ scale: scaleAnim }],
+                                shadowOpacity: isRecording ? 0.9 : 0.3,
+                                shadowRadius: isRecording ? 12 : 6,
+                                elevation: isRecording ? 12 : 4,
+                              },
+                            ]}
                           >
                             <TouchableOpacity
                               onPress={isRecording ? stopRecording : startRecording}
@@ -437,14 +477,18 @@ export default function Home() {
                               />
                             </TouchableOpacity>
                           </Animated.View>
-
                         )}
                       </View>
                     </View>
 
+
                   </View>
+                
+                {/* --START--
                 </> 
               )}
+
+              --END-- */}
             </View>
           </View>
         </TouchableWithoutFeedback>
@@ -478,42 +522,40 @@ const styles = StyleSheet.create({
     height: 45,
   },
   deviceItem: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  borderBottomWidth: 1,
-  borderBottomColor: '#eee',
-  paddingVertical: 12,
-  paddingHorizontal: 4,
-},
-deviceName: {
-  fontSize: 16,
-  fontWeight: '500',
-  color: '#222',
-},
-deviceId: {
-  fontSize: 12,
-  color: '#888',
-  marginTop: 2,
-},
-connectLink: {
-  fontSize: 14,
-  fontWeight: '600',
-  color: '#E53935', // same accent red, but no background
-},
-
-retryButton: {
-  backgroundColor: '#E53935',
-  paddingVertical: 8,
-  paddingHorizontal: 16,
-  borderRadius: 6,
-},
-retryButtonText: {
-  color: 'white',
-  fontSize: 14,
-  fontWeight: 'bold',
-},
-
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+  },
+  deviceName: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#222',
+  },
+  deviceId: {
+    fontSize: 12,
+    color: '#888',
+    marginTop: 2,
+  },
+  connectLink: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#E53935', 
+  },
+  retryButton: {
+    backgroundColor: '#E53935',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+  },
+  retryButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
   connectButton: {
     backgroundColor: '#E53935',
     flexDirection: 'row',
@@ -533,8 +575,7 @@ retryButtonText: {
     fontWeight: '600',
     marginLeft: 8,
   },
-
-    modalOverlay: {
+  modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.25)',
     justifyContent: 'center',
@@ -543,16 +584,33 @@ retryButtonText: {
   modalCard: {
     backgroundColor: 'white',
     borderRadius: 16,
-    padding: 28,
+    paddingVertical: 24,
+    paddingHorizontal: 24,
     width: '80%',
-    alignItems: 'center',
+    alignItems: 'stretch',
     elevation: 6,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    marginBottom: 12,
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    width: '100%',
+    marginTop: 16,
   },
   modalTitle: {
     fontSize: 22,
     fontWeight: 'bold',
     color: '#E53935',
-    marginBottom: 12,
   },
   modalText: {
     fontSize: 16,
@@ -560,16 +618,15 @@ retryButtonText: {
     textAlign: 'center',
   },
   closeButton: {
-    marginTop: 18,
-    backgroundColor: '#E53935',
-    borderRadius: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 28,
+    backgroundColor: 'white',
+    borderRadius: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
   },
   closeButtonText: {
-    color: 'white',
+    color: '#E53935',
     fontWeight: 'bold',
-    fontSize: 16,
+    fontSize: 14,
   },
   messageCard: {
     backgroundColor: '#f0f0f0',
@@ -577,16 +634,16 @@ retryButtonText: {
     padding: 22,
     marginBottom: 16,
     flexDirection: 'row',
-    alignItems: 'flex-start', // ensures children start at the top
-    justifyContent: 'space-between', // space between text and avatar
+    alignItems: 'flex-start', 
+    justifyContent: 'space-between', 
     minHeight: 250,
-    position: 'relative', // optional, for more control
+    position: 'relative', 
   },
   textLinesContainer: {
     flex: 1,
     marginRight: 16,
-    alignItems: 'flex-start', // aligns text lines to the left
-    justifyContent: 'flex-start', // aligns text lines to the top
+    alignItems: 'flex-start', 
+    justifyContent: 'flex-start', 
   },
   shortTextLine: {
     backgroundColor: '#d0d0d0',
@@ -657,8 +714,8 @@ retryButtonText: {
   },
   dropdownMenu: {
     position: "absolute",
-    top: 28,     // below the ellipsis
-    right: 0,    // align to the right
+    top: 28,  
+    right: 0,   
     backgroundColor: "white",
     borderRadius: 6,
     shadowColor: "#000",
@@ -689,25 +746,23 @@ retryButtonText: {
     alignItems: 'flex-start'
   },
   translationTextContainer: {
-    // flex: 1, // <-- Remove this line
     alignItems: 'flex-start',
     justifyContent: 'flex-start',
-    flexShrink: 1, // Optional: allows text to shrink if needed
+    flexShrink: 1, 
   },
   translationText: {
     color: 'white',
     fontSize: 18,
     marginBottom: 6,
-    textAlign: 'left', // <-- changed from right
+    textAlign: 'left',
     fontWeight: 'bold',
   },
   translationPrompt: {
     color: '#fff',
     fontSize: 18,
     marginBottom: 18,
-    textAlign: 'left', // <-- changed from right
+    textAlign: 'left',
     fontStyle: 'italic',
-    // fontWeight: 'bold',
   },
   translationPlayButton: {
     position: 'absolute',
@@ -734,7 +789,7 @@ retryButtonText: {
   },
   speechTextContainer: {
     flex: 1,
-    alignItems: 'flex-start', // <-- changed from flex-end
+    alignItems: 'flex-start', 
     justifyContent: 'flex-start',
   },
   speechTitle: {
@@ -748,21 +803,24 @@ retryButtonText: {
     fontSize: 18,
     marginBottom: 18,
   },
-  micButton: {
+  micButtonAnimated: {
     backgroundColor: '#E53935',
     borderRadius: 32,
     width: 60,
     height: 60,
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 2,
+    shadowColor: '#E53935',
   },
+
   textInput: {
-    fontSize: 20,
+    fontSize: 18,
     borderBottomWidth: 1,
-    borderColor: "#ccc",
-    paddingVertical: 4,
-    marginBottom: 20,
+    borderColor: "#ddd",
+    color: "#333",
+    paddingVertical: 6,
+    marginBottom: 16,
+    width: "100%",
   },
   rightColumn: {
     position: "absolute",
