@@ -38,6 +38,29 @@ const BOTTOM_TAB_HEIGHT = 60;
 
 const manager = new BleManager();
 const SERVICE_UUID = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
+const gestureData = require('../../assets/models/gesture_data.json');
+
+const findGesture = (flexReadings) => {
+  let closestGesture = '';
+  let minDistance = Infinity;
+
+  gestureData.forEach((gesture) => {
+    const flexValues = gesture.flex_values;
+
+    let distance = 0;
+    for (let i = 0; i < flexValues.length; i++) {
+      distance += Math.pow(flexReadings[i] - flexValues[i], 2);
+    }
+    distance = Math.sqrt(distance);
+
+    if (distance < minDistance) {
+      minDistance = distance;
+      closestGesture = gesture.gesture;
+    }
+  });
+
+  return closestGesture;
+};
 
 export default function Home() {
   const insets = useSafeAreaInsets();
@@ -297,7 +320,6 @@ export default function Home() {
 
             {/* Main content */}
             <View style={{flex: 1,}}>
-              {/* --START--
               {!isConnected ? (
                 <>
                   <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
@@ -335,7 +357,6 @@ export default function Home() {
               ) : (
                 <>
 
-                -- END -- */}
                   <View style={{ flex: 1 }}>
 
                     {/* Device Card */}
@@ -385,8 +406,18 @@ export default function Home() {
                         <Text style={styles.translationText}>FSL to Speech</Text>
                         {/* Show live BLE data instead of prediction for now */}
                         <Text style={styles.translationPrompt}>
-                          {isConnected ? gloveData : 'Waiting for glove input...'}
+                          {isConnected && gloveData
+                            ? (() => {
+                                const parsedData = gloveData.split(',').map((v) => parseInt(v.trim(), 10));
+                                if (parsedData.length >= 5) {
+                                  const gesture = findGesture(parsedData.slice(0, 5)); 
+                                  return gesture;
+                                }
+                                return 'Waiting for valid glove data...';
+                              })()
+                            : 'Waiting for glove input...'}
                         </Text>
+
 
                         {/* Optional: Split and show individual flex values */}
                         {isConnected && (() => {
@@ -484,11 +515,9 @@ export default function Home() {
 
                   </View>
                 
-                {/* --START--
                 </> 
               )}
 
-              --END-- */}
             </View>
           </View>
         </TouchableWithoutFeedback>

@@ -13,7 +13,7 @@ export default function useGloveModel() {
     const loadModel = async () => {
       try {
         const loadedModel = await loadTensorflowModel(
-          require('../../assets/models/EchoWear.tflite')
+          require('../../assets/models/model.tflite')
         );
         console.log('✅ Model loaded successfully');
         setModel(loadedModel);
