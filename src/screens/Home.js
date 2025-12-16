@@ -22,85 +22,31 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-import { BleManager, State } from 'react-native-ble-plx';
 import Constants from "expo-constants";
 
 import useGloveModel from '../components/Model';
 import { useTextToSpeech } from '../components/useTextToSpeech';
 import useSpeechToText from '../components/useSpeechToText'; 
+import { useBluetooth} from '../components/useBluetooth'; 
 import { Buffer } from "buffer";
-
 
 const { width } = Dimensions.get("window");
 const STATUSBAR_HEIGHT = Platform.OS === "ios" ? Constants.statusBarHeight : StatusBar.currentHeight || 0;
 const HEADER_HEIGHT = 60;
 const BOTTOM_TAB_HEIGHT = 60;
 
-const manager = new BleManager();
-const SERVICE_UUID = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
-const gestureData = require('../../assets/models/gesture_data.json');
-
-const findGesture = (flexReadings) => {
-  let closestGesture = '';
-  let minDistance = Infinity;
-
-  gestureData.forEach((gesture) => {
-    const flexValues = gesture.flex_values;
-
-    let distance = 0;
-    for (let i = 0; i < flexValues.length; i++) {
-      distance += Math.pow(flexReadings[i] - flexValues[i], 2);
-    }
-    distance = Math.sqrt(distance);
-
-    if (distance < minDistance) {
-      minDistance = distance;
-      closestGesture = gesture.gesture;
-    }
-  });
-
-  return closestGesture;
-};
-
 export default function Home() {
-  const insets = useSafeAreaInsets();
 
-  const [keyboardVisible, setKeyboardVisible] = useState(false);
-  const [showDeviceMenu, setShowDeviceMenu] = useState(false);
-  const [showBluetoothModal, setShowBluetoothModal] = useState(false);
-  const [isConnected, setIsConnected] = useState(false);
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [isScanning, setIsScanning] = useState(false);
-  const [devices, setDevices] = useState([]);
-  const [selectedDevice, setSelectedDevice] = useState(null);
-  const [gloveData, setGloveData] = useState("Waiting for data...");
-
-  
-  const { speak, stop, isSpeaking } = useTextToSpeech();
-  const { prediction, loading: modelLoading } = useGloveModel();
-
-  async function requestBluetoothPermissions() {
-    if (Platform.OS === "android") {
-      if (Platform.Version >= 31) {
-        const granted = await PermissionsAndroid.requestMultiple([
-          PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
-          PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
-          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-        ]);
-        return (
-          granted["android.permission.BLUETOOTH_SCAN"] === PermissionsAndroid.RESULTS.GRANTED &&
-          granted["android.permission.BLUETOOTH_CONNECT"] === PermissionsAndroid.RESULTS.GRANTED
-        );
-      } else {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
-        );
-        return granted === PermissionsAndroid.RESULTS.GRANTED;
-      }
-    } else {
-      return true;
-    }
-  }
+  const {
+    isConnected,
+    selectedDevice,
+    isScanning,
+    devices,
+    gloveData,
+    scanDevices,
+    connectToDevice,
+    disconnect,
+  } = useBluetooth();
 
   const {
     startRecording,
@@ -110,8 +56,17 @@ export default function Home() {
     isRecording,
   } = useSpeechToText();
 
+  const insets = useSafeAreaInsets();
+
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [showBluetoothModal, setShowBluetoothModal] = useState(false);
+  const [showDeviceMenu, setShowDeviceMenu] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
+
+  const { speak, stop, isSpeaking } = useTextToSpeech();
+  const { prediction, loading: modelLoading, modelReady } = useGloveModel(gloveData);
+
   const [isTyping, setIsTyping] = useState(false); 
-  const [textValue, setTextValue] = useState(''); 
   const [manualText, setManualText] = useState(''); 
   const [displayedText, setDisplayedText] = useState('');
 
@@ -151,7 +106,6 @@ export default function Home() {
     setIsTyping((prev) => !prev);
   };
 
-
   const dismissKeyboard = () => {
     Keyboard.dismiss();
   };
@@ -167,82 +121,20 @@ export default function Home() {
   }, []);
 
   const handleScanDevices = async () => {
-    const hasPermission = await requestBluetoothPermissions();
-    if (!hasPermission) {
-      Alert.alert("Bluetooth permission needed", "Please grant Bluetooth access.");
-      return;
-    }
-
-    const btState = await manager.state();
-    if (btState !== State.PoweredOn) {
-      Alert.alert("Bluetooth is Off", "Please enable Bluetooth to scan for devices.", [{ text: "OK" }]);
-      return; 
-    }
-
-    setShowBluetoothModal(true);
-    setIsScanning(true);
-    setDevices([]);
-
-    manager.startDeviceScan(null, null, (error, device) => {
-      if (error) {
-        console.log("Scan error:", error);
-        setIsScanning(false);
-        return;
-      }
-
-      if (device && device.serviceUUIDs?.includes(SERVICE_UUID)) {
-        setDevices(prev => prev.some(d => d.id === device.id) ? [...prev] : [...prev, device]);
-      }
-    });
-
-    setTimeout(() => {
-      manager.stopDeviceScan();
-      setIsScanning(false);
-    }, 5000);
-  };
-
-  const handleConnectToDevice = async (device) => {
-    try {
-      const connectedDevice = await manager.connectToDevice(device.id);
-      await connectedDevice.discoverAllServicesAndCharacteristics();
-      const CHARACTERISTIC_UUID = "beb5483e-36e1-4688-b7f5-ea07361b26a8"; 
-      connectedDevice.monitorCharacteristicForService(
-        SERVICE_UUID,
-        CHARACTERISTIC_UUID,
-        (error, characteristic) => {
-          if (error) {
-            console.log("Monitor error:", error);
-            return;
-          }
-
-          if (characteristic?.value) {
-            const raw = Buffer.from(characteristic.value, "base64").toString("utf8");
-            console.log("BLE Data:", raw);
-            setGloveData(raw);
-          }
-        }
-      );
-
-      setIsConnected(true); 
-      setShowBluetoothModal(false);
-      setSelectedDevice(connectedDevice);
-    } catch (err) {
-      console.log("Connection error:", err);
+    const canScan = await scanDevices();
+    if (canScan) {
+      setShowBluetoothModal(true);
     }
   };
-
-  const handleDisconnect = async () => {
-    try {
-      if (selectedDevice) {
-        await manager.cancelDeviceConnection(selectedDevice.id);
-      }
-      setSelectedDevice(null);
-      setIsConnected(false);
-    } catch (err) {
-      console.log("Disconnect error:", err);
-    }
+  const handleConnectToDevice = (device) => {
+    connectToDevice(device);
+    setShowBluetoothModal(false);
   };
-
+  const handleDisconnect = () => {
+    disconnect();
+    setShowDeviceMenu(false);
+  };
+  
   const handleCloseModal = () => {
     setShowBluetoothModal(false);
   };
@@ -374,7 +266,10 @@ export default function Home() {
                         <View style={styles.deviceStatusRow}>
                           <Ionicons name="battery-half" size={18} color="#333" />
                           <Text style={styles.deviceBattery}>75%</Text>
-                          <Text style={styles.deviceConnected}>connected</Text>
+                          <Text style={[styles.deviceConnected, { color: isConnected ? '#4CAF50' : '#E53935' }]}>
+  {isConnected ? 'Connected' : 'Disconnected'}
+</Text>
+
                         </View>
                       </View>
 
@@ -386,17 +281,30 @@ export default function Home() {
 
                         {showDeviceMenu && (
                           <View style={styles.dropdownMenu}>
-                            <TouchableOpacity
-                              style={styles.dropdownItem}
-                              onPress={() => {
-                                setShowDeviceMenu(false);
-                                handleDisconnect();
-                              }}
-                            >
-                              <Text style={styles.dropdownText}>Disconnect</Text>
-                            </TouchableOpacity>
+                            {isConnected ? (
+                              <TouchableOpacity
+                                style={styles.dropdownItem}
+                                onPress={() => {
+                                  setShowDeviceMenu(false);
+                                  handleDisconnect();
+                                }}
+                              >
+                                <Text style={styles.dropdownText}>Disconnect</Text>
+                              </TouchableOpacity>
+                            ) : (
+                              <TouchableOpacity
+                                style={styles.dropdownItem}
+                                onPress={() => {
+                                  setShowDeviceMenu(false);
+                                  handleScanDevices(); // reconnect if disconnected
+                                }}
+                              >
+                                <Text style={styles.dropdownText}>Reconnect</Text>
+                              </TouchableOpacity>
+                            )}
                           </View>
                         )}
+
                       </View>
                     </View>
 
@@ -404,38 +312,10 @@ export default function Home() {
                     <View style={[styles.translationCard, { flex: 4 }]}>
                       <View style={styles.translationTextContainer}>
                         <Text style={styles.translationText}>FSL to Speech</Text>
-                        {/* Show live BLE data instead of prediction for now */}
                         <Text style={styles.translationPrompt}>
-                          {isConnected && gloveData
-                            ? (() => {
-                                const parsedData = gloveData.split(',').map((v) => parseInt(v.trim(), 10));
-                                if (parsedData.length >= 5) {
-                                  const gesture = findGesture(parsedData.slice(0, 5)); 
-                                  return gesture;
-                                }
-                                return 'Waiting for valid glove data...';
-                              })()
-                            : 'Waiting for glove input...'}
+                          {modelReady ? prediction : 'Loading model...'}
                         </Text>
-
-
-                        {/* Optional: Split and show individual flex values */}
-                        {isConnected && (() => {
-                          const parsedData = gloveData.split(',').map(v => v.trim());
-                          return (
-                            parsedData.length >= 5 && (
-                              <View style={{ marginTop: 10 }}>
-                                <Text>Thumb: {parsedData[0]}</Text>
-                                <Text>Index: {parsedData[1]}</Text>
-                                <Text>Middle: {parsedData[2]}</Text>
-                                <Text>Ring: {parsedData[3]}</Text>
-                                <Text>Pinky: {parsedData[4]}</Text>
-                              </View>
-                            )
-                          );
-                        })()}
                       </View>
-
                       <TouchableOpacity
                         style={styles.translationPlayButton}
                         onPress={() => {
@@ -450,6 +330,7 @@ export default function Home() {
                         <Ionicons name="play" size={32} color="#E53935" />
                       </TouchableOpacity>
                     </View>
+
 
                     {/* Speech to Text Card */}
                     <View style={[styles.speechCard, { flex: 4 }]}>

@@ -8,10 +8,12 @@ import {
   Dimensions,
   StatusBar,
   Platform,
+  Image
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Constants from "expo-constants";
 import ModelViewer from "../components/ModelViewer";
+import { useTextToSpeech } from '../components/useTextToSpeech';
 
 const { width } = Dimensions.get("window");
 const STATUSBAR_HEIGHT =
@@ -29,12 +31,12 @@ const categories = [
 
 const words = {
   Alphabet: ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "Ñ", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"],
-  Numbers: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "30", "40", "50", "60", "70", "80", "90", "100"],
-  "Basic Expressions": ["Come here", "Don’t know", "Don’t understand", "Ewan", "Excuse me", "Know", "Mano po", "No", "OK", "Please", "Sana", "Sorry", "Understand", "Uy", "Wait", "What?", "When?", "Why?", "Wrong", "Yes"],
-  "Greetings & Farewells": ["Bye", "Good afternoon", "Good evening", "Good morning", 'Good', "night", "See you later", "See you tomorrow"],
-  "Time & Frequency": ["Absent", "Age", "Always", "Birthday", "Late", "Later", "Never", "Recent", "Tomorrow", "Yesterday"],
-  "Physical Appearance": ["Beauty eyes", "Dimple", "Long hair", "Mole", "Nose", "Short", "Straight hair", "Tall"],
-  "Gender & Sexuality": ["Anti-discrimination ordinance", "Bisexual", "Cisgender", "Feminine", "Gay", "Genderqueer", "Lesbian", "Masculine", "Sexual character", "Sexual orientation", "SOGIESC", "Transgender", "Transman", "Transwoman"],
+  Numbers: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"],
+  "Basic Expressions": ["Come here", "Don’t know", "Don’t understand", "Excuse me", "Know", "Bless (Mano po)", "No", "OK", "Please", "Sorry", "Understand", "Uy", "Wait", "What?", "When?", "Why?", "Wrong", "Yes"],
+  "Greetings & Farewells": ["Bye", "Good afternoon", "Good evening", "Good morning", "See you later", "See you tomorrow"],
+  "Time & Frequency": ["Absent", "Always", "Late", "Later", "Never", "Recent", "Tomorrow", "Yesterday"],
+  "Physical Appearance": ["Dimple", "Long hair", "Nose", "Short", "Straight hair", "Tall"],
+  "Gender & Sexuality": ["Anti-discrimination ordinance", "Bisexual", "Cisgender", "Feminine", "Gay", "Genderqueer", "Lesbian", "Masculine", "Sexual orientation", "SOGIESC", "Transgender"],
 };
 
 const models = {
@@ -95,6 +97,10 @@ const models = {
     "Z": [require("../../assets/models/alphabet/Z.glb")],
 }
 
+const thumbnails = {
+  'A': require("../../assets/thumbnails/a.png")
+}
+
 export default function Library() {
   const [selectedCategory, setSelectedCategory] = useState("Alphabet");
   const [selectedWordIndex, setSelectedWordIndex] = useState(null);
@@ -132,6 +138,22 @@ export default function Library() {
   };
 
   const resetView = () => setSelectedWordIndex(null);
+
+  const { speak, stop } = useTextToSpeech();
+    useEffect(() => {
+    if (selectedWord) {
+      stop();          // stop any previous speech
+      speak(selectedWord);
+    }
+
+    // stop speaking when leaving / switching
+    return () => stop();
+  }, [selectedWord]);
+
+  useEffect(() => {
+    return () => stop();
+  }, []);
+
 
   return (
     <View style={styles.safeArea}>
@@ -196,29 +218,38 @@ export default function Library() {
 
           {/* Word Grid OR Detail */}
           {selectedWordIndex === null ? (
-            // Grid View
-            <FlatList
-              data={currentWords}
-              keyExtractor={(item) => item}
-              numColumns={2}
-              contentContainerStyle={styles.wordList}
-              columnWrapperStyle={{ justifyContent: "space-between" }}
-              renderItem={({ item, index }) => (
+          // Grid View
+          <FlatList
+            data={currentWords}
+            keyExtractor={(item) => item}
+            numColumns={2}
+            contentContainerStyle={styles.wordList}
+            columnWrapperStyle={{ justifyContent: "space-between" }}
+            renderItem={({ item, index }) => {
+              const thumbnail = thumbnails[item];
+              return (
                 <TouchableOpacity
                   style={styles.wordCard}
                   onPress={() => setSelectedWordIndex(index)}
+                  activeOpacity={0.8}
                 >
                   <View style={styles.animationBox}>
-                    <View style={styles.animationBox}>
-                      {/* <Thumbnails source={models[item]?.[0]} /> */}
-                      <Text>thumbnail</Text>
-                    </View>
+                    {thumbnail ? (
+                      <Image source={thumbnail} style={styles.thumbnailImage} />
+                    ) : (
+                      <View style={styles.placeholderBox}>
+                        <Ionicons name="cube-outline" size={50} color="#A8A8A8" />
+                        <Text style={styles.thumbnailText}>Not yet available</Text>
+                      </View>
+                    )}
                   </View>
+
                   <Text style={styles.wordText}>{item}</Text>
                 </TouchableOpacity>
-              )}
-            />
-          ) : (
+              );
+            }}
+          />
+        ) : (
             // Detail View
             <View style={styles.detailView}>
               {/* Word Title */}
@@ -286,7 +317,12 @@ export default function Library() {
 
                 <TouchableOpacity
                 style={styles.replayBtn}
-                onPress={() => modelRef.current?.replay()}
+                onPress={() => {modelRef.current?.replay();
+                  if (selectedWord) {
+                    stop();
+                    speak(selectedWord);
+                  }
+                }}
                 >
                 <Ionicons name="play-circle" size={50} color="#E64C3C" />
                 <Text style={styles.controlText}>Replay</Text>
@@ -391,34 +427,52 @@ const styles = StyleSheet.create({
         color: "#E64C3C" 
     },
     wordList: { 
-        paddingBottom: 16 
+      paddingBottom: 16,
     },
     wordCard: { 
-        width: (width - 70 - 48) / 2, 
-        backgroundColor: "#fff", 
-        borderRadius: 12, 
-        padding: 12, 
-        marginBottom: 16, 
-        borderWidth: 1, 
-        borderColor: "#E64C3C", 
-        alignItems: "center" 
+      width: (width - 70 - 48) / 2, 
+      backgroundColor: "#fff", 
+      borderRadius: 12, 
+      padding: 12, 
+      marginBottom: 16, 
+      borderWidth: 1, 
+      borderColor: "#E64C3C", 
+      alignItems: "center", 
     },
     animationBox: { 
-        width: "100%", 
-        height: 120, 
-        backgroundColor: "#FDECEA", 
-        borderRadius: 10, 
-        marginBottom: 8, 
+      width: "100%", 
+      aspectRatio: 1, // makes it a perfect square
+      borderRadius: 10, 
+      overflow: "hidden", 
+      marginBottom: 8, 
+      justifyContent: "center", 
+      alignItems: "center",
     },
-    animationPlaceholder: { 
-        color: "#A8A8A8", 
-        fontSize: 12 
+    thumbnailImage: {
+      width: "100%",
+      height: "100%",
+      resizeMode: "contain", // or "cover" if you want it to fill the box
+    },
+    placeholderBox: {
+      width: "100%",
+      aspectRatio: 1,
+      justifyContent: "center",
+      alignItems: "center",
+      backgroundColor: "#F8F8F8",
+      borderRadius: 10,
+    },
+    thumbnailText: {
+      color: "#A8A8A8",
+      fontSize: 12,
+      marginTop: 6,
     },
     wordText: { 
-        fontSize: 16, 
-        fontWeight: "600", 
-        color: "#E64C3C" 
+      fontSize: 16, 
+      fontWeight: "600", 
+      color: "#E64C3C", 
     },
+
+
     detailView: { 
         flex: 1, 
         justifyContent: "space-between", 

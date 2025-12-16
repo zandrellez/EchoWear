@@ -5,12 +5,13 @@ import React, {
   useState,
   useEffect,
 } from "react";
-import { PanResponder, View, ActivityIndicator } from "react-native";
+import { PanResponder, View, ActivityIndicator, Text } from "react-native";
 import { GLView } from "expo-gl";
 import { Renderer } from "expo-three";
 import * as THREE from "three";
 import { Asset } from "expo-asset";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils";
 
 const modelCache = new Map();
 
@@ -20,13 +21,25 @@ const ModelViewer = forwardRef(function ModelViewer(
 ) {
   const modelRef = useRef();
   const mixerRef = useRef();
-  const actionRef = useRef(); // 🔹 NEW
+  const actionRef = useRef();
   const rotationYRef = useRef(0);
   const cameraRef = useRef();
   const lastTouchDistanceRef = useRef(null);
   const [loading, setLoading] = useState(true);
+  const [showHint, setShowHint] = useState(true);
+
+  // replay method persists across model changes
+  useImperativeHandle(ref, () => ({
+    replay: () => {
+      if (actionRef.current && mixerRef.current) {
+        actionRef.current.reset();
+        actionRef.current.play();
+      }
+    },
+  }));
 
   const onContextCreate = async (gl) => {
+    setLoading(true);
     const renderer = new Renderer({ gl });
     renderer.setSize(gl.drawingBufferWidth, gl.drawingBufferHeight);
     renderer.setClearColor(0xfdecea, 1);
@@ -54,42 +67,60 @@ const ModelViewer = forwardRef(function ModelViewer(
     let model;
     const uri = asset.localUri || asset.uri;
 
-    if (modelCache.has(uri)) {
-      model = modelCache.get(uri).clone(true);
-    } else {
-      const gltf = await new Promise((resolve, reject) => {
-        loader.load(uri, resolve, undefined, reject);
-      });
-      model = gltf.scene;
+    let gltf;
 
-      model.traverse((child) => {
-        if (child.isMesh) {
-          child.castShadow = true;
-          child.receiveShadow = true;
-        }
-      });
+  if (modelCache.has(uri)) {
+    gltf = modelCache.get(uri);
 
-      const box = new THREE.Box3().setFromObject(model);
-      const center = box.getCenter(new THREE.Vector3());
-      const size = box.getSize(new THREE.Vector3());
-      const scale = 1.5 / Math.max(size.x, size.y, size.z);
-      model.scale.setScalar(scale);
-      model.position.sub(center.multiplyScalar(scale));
-      model.position.x += offset.x;
-      model.position.y += offset.y;
+    // ✅ CORRECT animation-safe clone
+    model = SkeletonUtils.clone(gltf.scene);
+  } else {
+    gltf = await new Promise((resolve, reject) => {
+      loader.load(uri, resolve, undefined, reject);
+    });
 
-      modelCache.set(uri, model.clone(true));
+    model = gltf.scene;
 
-      // 🔹 Animations
-      if (gltf.animations.length > 0) {
-        const mixer = new THREE.AnimationMixer(model);
-        const action = mixer.clipAction(gltf.animations[0]);
-        action.setLoop(THREE.LoopOnce, 1);
-        action.clampWhenFinished = true;
-        action.play();
-        mixerRef.current = mixer;
-        actionRef.current = action; // ✅ store reference
+    model.traverse((child) => {
+      if (child.isMesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
       }
+    });
+
+    const box = new THREE.Box3().setFromObject(model);
+    const center = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3());
+    const scale = 1.5 / Math.max(size.x, size.y, size.z);
+    model.scale.setScalar(scale);
+    model.position.sub(center.multiplyScalar(scale));
+    model.position.x += offset.x;
+    model.position.y += offset.y;
+
+    // ✅ cache full gltf
+    modelCache.set(uri, gltf);
+  }
+
+
+    // handle animations properly
+    if (gltf.animations.length > 0) {
+      const mixer = new THREE.AnimationMixer(model);
+      const clip = gltf.animations[0];
+      const action = mixer.clipAction(clip);
+
+      action.reset();
+      action.setLoop(THREE.LoopOnce, 1);
+      action.clampWhenFinished = true;
+      action.play();
+
+      mixer.time = 0;
+      mixer.update(0);
+
+      mixerRef.current = mixer;
+      actionRef.current = action;
+    }  else {
+      mixerRef.current = null;
+      actionRef.current = null;
     }
 
     scene.add(model);
@@ -117,28 +148,23 @@ const ModelViewer = forwardRef(function ModelViewer(
     animate();
   };
 
-  // 🔹 Update playback speed dynamically
+  // update playback speed dynamically
   useEffect(() => {
     if (mixerRef.current && actionRef.current) {
       mixerRef.current.timeScale = animationSpeed;
     }
   }, [animationSpeed]);
 
-  // ✅ Expose replay() method
-  useImperativeHandle(ref, () => ({
-    replay: () => {
-      if (actionRef.current && mixerRef.current) {
-        actionRef.current.reset();
-        actionRef.current.play();
-      }
-    },
-  }));
-
-  // 🔹 Touch controls (pinch zoom + rotate)
+  // touch + gesture control
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
+
+      onPanResponderGrant: () => {
+        // hide hint overlay on first touch
+        if (showHint) setShowHint(false);
+      },
 
       onPanResponderMove: (evt, gestureState) => {
         const touches = evt.nativeEvent.touches;
@@ -187,6 +213,38 @@ const ModelViewer = forwardRef(function ModelViewer(
           <ActivityIndicator size="large" color="#E64C3C" />
         </View>
       )}
+
+      {showHint && !loading && (
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            justifyContent: "center",
+            alignItems: "center",
+            backgroundColor: "rgba(0,0,0,0.25)",
+            zIndex: 10,
+          }}
+        >
+          <Text
+            style={{
+              color: "white",
+              fontSize: 16,
+              fontWeight: "600",
+              backgroundColor: "rgba(0,0,0,0.5)",
+              paddingVertical: 6,
+              paddingHorizontal: 12,
+              borderRadius: 8,
+            }}
+          >
+            Rotate & Pinch to Zoom
+          </Text>
+        </View>
+      )}
+
       <GLView style={{ flex: 1 }} onContextCreate={onContextCreate} {...panResponder.panHandlers} />
     </>
   );
