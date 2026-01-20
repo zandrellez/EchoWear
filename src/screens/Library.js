@@ -26,75 +26,71 @@ const categories = [
   { key: "Greetings & Farewells", icon: "hand-right-outline" },
   { key: "Time & Frequency", icon: "time-outline" },
   { key: "Physical Appearance", icon: "person-outline" },
-  { key: "Gender & Sexuality", icon: "transgender-outline" },
+  { key: "SOGIESC", icon: "transgender-outline" },
 ];
 
 const words = {
   Alphabet: ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "Ñ", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"],
   Numbers: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"],
-  "Basic Expressions": ["Come here", "Don’t know", "Don’t understand", "Excuse me", "Know", "Bless (Mano po)", "No", "OK", "Please", "Sorry", "Understand", "Uy", "Wait", "What?", "When?", "Why?", "Wrong", "Yes"],
-  "Greetings & Farewells": ["Bye", "Good afternoon", "Good evening", "Good morning", "See you later", "See you tomorrow"],
-  "Time & Frequency": ["Absent", "Always", "Late", "Later", "Never", "Recent", "Tomorrow", "Yesterday"],
-  "Physical Appearance": ["Dimple", "Long hair", "Nose", "Short", "Straight hair", "Tall"],
-  "Gender & Sexuality": ["Anti-discrimination ordinance", "Bisexual", "Cisgender", "Feminine", "Gay", "Genderqueer", "Lesbian", "Masculine", "Sexual orientation", "SOGIESC", "Transgender"],
+  "Basic Expressions": ["Bye", "Good afternoon", "Good evening", "Good morning", "See you later", "See you tomorrow"],
+  "SOGIESC": ["Anti-discrimination ordinance", "Bisexual", "Cisgender", "Feminine", "Gay", "Genderqueer", "Lesbian", "Masculine", "Sexual orientation", "SOGIESC", "Transgender"],
 };
 
 const models = {
-    1: [require("../../assets/models/numbers/1.glb")],
-    2: [require("../../assets/models/numbers/2.glb")],
-    3: [require("../../assets/models/numbers/3.glb")],
-    4: [require("../../assets/models/numbers/4.glb")],
-    5: [require("../../assets/models/numbers/5.glb")],
-    6: [require("../../assets/models/numbers/6.glb")],
-    7: [require("../../assets/models/numbers/7.glb")],
-    8: [require("../../assets/models/numbers/8.glb")],
-    9: [require("../../assets/models/numbers/9.glb")],
-    10: [require("../../assets/models/numbers/10.glb")],
-    11: [require("../../assets/models/numbers/11.glb")],
-    12: [require("../../assets/models/numbers/12.glb")],
-    13: [require("../../assets/models/numbers/13.glb")],
-    14: [require("../../assets/models/numbers/14.glb")],
-    15: [require("../../assets/models/numbers/15.glb")],
-    16: [require("../../assets/models/numbers/16.glb")],
-    17: [require("../../assets/models/numbers/17.glb")],
-    18: [require("../../assets/models/numbers/18.glb")],
-    19: [require("../../assets/models/numbers/19.glb")],
-    20: [require("../../assets/models/numbers/20.glb")],
-    30: [require("../../assets/models/numbers/30.glb")],
-    40: [require("../../assets/models/numbers/40.glb")],
-    50: [require("../../assets/models/numbers/50.glb")],
-    60: [require("../../assets/models/numbers/60.glb")],
-    70: [require("../../assets/models/numbers/70.glb")],
-    80: [require("../../assets/models/numbers/80.glb")],
-    90: [require("../../assets/models/numbers/90.glb")],
-    100: [require("../../assets/models/numbers/100.glb")],
-    "A": [require("../../assets/models/alphabet/A.glb")],
-    "B": [require("../../assets/models/alphabet/B.glb")],
-    "C": [require("../../assets/models/alphabet/C.glb")],
-    "D": [require("../../assets/models/alphabet/D.glb")],
-    "E": [require("../../assets/models/alphabet/E.glb")],
-    "F": [require("../../assets/models/alphabet/F.glb")],
-    "G": [require("../../assets/models/alphabet/G.glb")],
-    "H": [require("../../assets/models/alphabet/H.glb")],
-    "I": [require("../../assets/models/alphabet/I.glb")],
-    "J": [require("../../assets/models/alphabet/J.glb")],
-    "K": [require("../../assets/models/alphabet/K.glb")],
-    "L": [require("../../assets/models/alphabet/L.glb")],
-    "M": [require("../../assets/models/alphabet/M.glb")],
-    "N": [require("../../assets/models/alphabet/N.glb")],
-    "Ñ": [require("../../assets/models/alphabet/Ñ.glb")],
-    "O": [require("../../assets/models/alphabet/O.glb")],
-    "P": [require("../../assets/models/alphabet/P.glb")],
-    "Q": [require("../../assets/models/alphabet/Q.glb")],
-    "R": [require("../../assets/models/alphabet/R.glb")],
-    "S": [require("../../assets/models/alphabet/S.glb")],
-    "T": [require("../../assets/models/alphabet/T.glb")],
-    "U": [require("../../assets/models/alphabet/U.glb")],
-    "V": [require("../../assets/models/alphabet/V.glb")],
-    "W": [require("../../assets/models/alphabet/W.glb")],
-    "X": [require("../../assets/models/alphabet/X.glb")],
-    "Y": [require("../../assets/models/alphabet/Y.glb")],
-    "Z": [require("../../assets/models/alphabet/Z.glb")],
+  0: [require("../../assets/models/numbers/0.glb")],
+  1: [require("../../assets/models/numbers/1.glb")],
+  2: [require("../../assets/models/numbers/2.glb")],
+  3: [require("../../assets/models/numbers/3.glb")],
+  4: [require("../../assets/models/numbers/4.glb")],
+  5: [require("../../assets/models/numbers/5.glb")],
+  6: [require("../../assets/models/numbers/6.glb")],
+  7: [require("../../assets/models/numbers/7.glb")],
+  8: [require("../../assets/models/numbers/8.glb")],
+  9: [require("../../assets/models/numbers/9.glb")],
+  "A": [require("../../assets/models/alphabet/A.glb")],
+  "B": [require("../../assets/models/alphabet/B.glb")],
+  "C": [require("../../assets/models/alphabet/C.glb")],
+  "D": [require("../../assets/models/alphabet/D.glb")],
+  "E": [require("../../assets/models/alphabet/E.glb")],
+  "F": [require("../../assets/models/alphabet/F.glb")],
+  "G": [require("../../assets/models/alphabet/G.glb")],
+  "H": [require("../../assets/models/alphabet/H.glb")],
+  "I": [require("../../assets/models/alphabet/I.glb")],
+  "J": [require("../../assets/models/alphabet/J.glb")],
+  "K": [require("../../assets/models/alphabet/K.glb")],
+  "L": [require("../../assets/models/alphabet/L.glb")],
+  "M": [require("../../assets/models/alphabet/M.glb")],
+  "N": [require("../../assets/models/alphabet/N.glb")],
+  "Ñ": [require("../../assets/models/alphabet/Ñ.glb")],
+  "O": [require("../../assets/models/alphabet/O.glb")],
+  "P": [require("../../assets/models/alphabet/P.glb")],
+  "Q": [require("../../assets/models/alphabet/Q.glb")],
+  "R": [require("../../assets/models/alphabet/R.glb")],
+  "S": [require("../../assets/models/alphabet/S.glb")],
+  "T": [require("../../assets/models/alphabet/T.glb")],
+  "U": [require("../../assets/models/alphabet/U.glb")],
+  "V": [require("../../assets/models/alphabet/V.glb")],
+  "W": [require("../../assets/models/alphabet/W.glb")],
+  "X": [require("../../assets/models/alphabet/X.glb")],
+  "Y": [require("../../assets/models/alphabet/Y.glb")],
+  "Z": [require("../../assets/models/alphabet/Z.glb")],
+  "Bye": [require("../../assets/models/basic-expressions/bye.glb")],
+  "Good afternoon": [require("../../assets/models/basic-expressions/good_afternoon.glb")],
+  "Good evening": [require("../../assets/models/basic-expressions/good_evening.glb")],
+  "Good morning": [require("../../assets/models/basic-expressions/good_morning.glb")],
+  "See you later": [require("../../assets/models/basic-expressions/see_you_later.glb")],
+  "See you tomorrow": [require("../../assets/models/basic-expressions/see_you_tomorrow.glb")],
+  "Anti-discrimination ordinance": [require("../../assets/models/sogiesc/anti_discrimination_ordinance.glb")],
+  "Bisexual": [require("../../assets/models/sogiesc/bisexual.glb")],
+  "Cisgender": [require("../../assets/models/sogiesc/cisgender.glb")],
+  "Feminine": [require("../../assets/models/sogiesc/feminine.glb")],
+  "Gay": [require("../../assets/models/sogiesc/gay.glb")],
+  "Genderqueer": [require("../../assets/models/sogiesc/genderqueer.glb")],
+  "Lesbian": [require("../../assets/models/sogiesc/lesbian.glb")],
+  "Masculine": [require("../../assets/models/sogiesc/masculine.glb")],
+  "Sexual orientation": [require("../../assets/models/sogiesc/sexual_orientation.glb")],
+  "SOGIESC": [require("../../assets/models/sogiesc/sogiesc.glb")],
+  "Transgender": [require("../../assets/models/sogiesc/transgender.glb")],
 }
 
 const thumbnails = {
@@ -104,7 +100,7 @@ const thumbnails = {
 export default function Library() {
   const [selectedCategory, setSelectedCategory] = useState("Alphabet");
   const [selectedWordIndex, setSelectedWordIndex] = useState(null);
-  const [animationSpeed, setAnimationSpeed] = useState(1); 
+  const [animationSpeed, setAnimationSpeed] = useState(1);
   const speedOptions = [0.25, 0.5, 1, 2.5, 10];
 
   useEffect(() => {
@@ -140,7 +136,7 @@ export default function Library() {
   const resetView = () => setSelectedWordIndex(null);
 
   const { speak, stop } = useTextToSpeech();
-    useEffect(() => {
+  useEffect(() => {
     if (selectedWord) {
       stop();          // stop any previous speech
       speak(selectedWord);
@@ -218,38 +214,38 @@ export default function Library() {
 
           {/* Word Grid OR Detail */}
           {selectedWordIndex === null ? (
-          // Grid View
-          <FlatList
-            data={currentWords}
-            keyExtractor={(item) => item}
-            numColumns={2}
-            contentContainerStyle={styles.wordList}
-            columnWrapperStyle={{ justifyContent: "space-between" }}
-            renderItem={({ item, index }) => {
-              const thumbnail = thumbnails[item];
-              return (
-                <TouchableOpacity
-                  style={styles.wordCard}
-                  onPress={() => setSelectedWordIndex(index)}
-                  activeOpacity={0.8}
-                >
-                  <View style={styles.animationBox}>
-                    {thumbnail ? (
-                      <Image source={thumbnail} style={styles.thumbnailImage} />
-                    ) : (
-                      <View style={styles.placeholderBox}>
-                        <Ionicons name="cube-outline" size={50} color="#A8A8A8" />
-                        <Text style={styles.thumbnailText}>Not yet available</Text>
-                      </View>
-                    )}
-                  </View>
+            // Grid View
+            <FlatList
+              data={currentWords}
+              keyExtractor={(item) => item}
+              numColumns={2}
+              contentContainerStyle={styles.wordList}
+              columnWrapperStyle={{ justifyContent: "space-between" }}
+              renderItem={({ item, index }) => {
+                const thumbnail = thumbnails[item];
+                return (
+                  <TouchableOpacity
+                    style={styles.wordCard}
+                    onPress={() => setSelectedWordIndex(index)}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.animationBox}>
+                      {thumbnail ? (
+                        <Image source={thumbnail} style={styles.thumbnailImage} />
+                      ) : (
+                        <View style={styles.placeholderBox}>
+                          <Ionicons name="cube-outline" size={50} color="#A8A8A8" />
+                          <Text style={styles.thumbnailText}>Not yet available</Text>
+                        </View>
+                      )}
+                    </View>
 
-                  <Text style={styles.wordText}>{item}</Text>
-                </TouchableOpacity>
-              );
-            }}
-          />
-        ) : (
+                    <Text style={styles.wordText}>{item}</Text>
+                  </TouchableOpacity>
+                );
+              }}
+            />
+          ) : (
             // Detail View
             <View style={styles.detailView}>
               {/* Word Title */}
@@ -271,7 +267,7 @@ export default function Library() {
                     <Text style={styles.placeholderText}>3D Model Coming Soon</Text>
                   </View>
                 )}
-                
+
                 <View style={{ flexDirection: "row", justifyContent: "center", marginBottom: 10 }}>
                   {speedOptions.map((speed) => (
                     <TouchableOpacity
@@ -316,16 +312,17 @@ export default function Library() {
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                style={styles.replayBtn}
-                onPress={() => {modelRef.current?.replay();
-                  if (selectedWord) {
-                    stop();
-                    speak(selectedWord);
-                  }
-                }}
+                  style={styles.replayBtn}
+                  onPress={() => {
+                    modelRef.current?.replay();
+                    if (selectedWord) {
+                      stop();
+                      speak(selectedWord);
+                    }
+                  }}
                 >
-                <Ionicons name="play-circle" size={50} color="#E64C3C" />
-                <Text style={styles.controlText}>Replay</Text>
+                  <Ionicons name="play-circle" size={50} color="#E64C3C" />
+                  <Text style={styles.controlText}>Replay</Text>
                 </TouchableOpacity>
 
 
@@ -367,157 +364,157 @@ export default function Library() {
 }
 
 const styles = StyleSheet.create({
-    safeArea: {
-        flex: 1, 
-        paddingTop: STATUSBAR_HEIGHT, 
-        backgroundColor: "#fff"
-    },
-    header: {
-        height: 60,
-        justifyContent: "center",
-        alignItems: "center",
-        borderBottomWidth: 1,
-        borderColor: "#eee",
-        backgroundColor: "#fff",
-    },
-    headerText: { 
-        fontSize: 20, 
-        fontWeight: "bold", 
-        color: "#000" 
-    },
-    container: { 
-        flex: 1, 
-        flexDirection: "row" 
-    },
-    leftPane: { 
-        width: 70, 
-        borderRightWidth: 1, 
-        borderColor: "#eee", 
-        alignItems: "center" 
-    },
-    iconButton: { 
-        padding: 15, 
-        marginVertical: 5, 
-        borderRadius: 10 
-    },
-    activeCategory: { 
-        backgroundColor: "#FDECEA" 
-    },
-    wordsContainer: { 
-        flex: 1, 
-        padding: 16 
-    },
-    categoryHeader: { 
-        flexDirection: "row", 
-        alignItems: "center", 
-        justifyContent: "space-between", 
-        marginBottom: 12 
-    },
-    backButton: { 
-        width: 40, 
-        alignItems: "center" 
-    },
-    categoryTitleWrapper: { 
-        flex: 1, 
-        alignItems: "center" 
-    },
-    categoryTitle: { 
-        fontSize: 18, 
-        fontWeight: "bold", 
-        color: "#E64C3C" 
-    },
-    wordList: { 
-      paddingBottom: 16,
-    },
-    wordCard: { 
-      width: (width - 70 - 48) / 2, 
-      backgroundColor: "#fff", 
-      borderRadius: 12, 
-      padding: 12, 
-      marginBottom: 16, 
-      borderWidth: 1, 
-      borderColor: "#E64C3C", 
-      alignItems: "center", 
-    },
-    animationBox: { 
-      width: "100%", 
-      aspectRatio: 1, // makes it a perfect square
-      borderRadius: 10, 
-      overflow: "hidden", 
-      marginBottom: 8, 
-      justifyContent: "center", 
-      alignItems: "center",
-    },
-    thumbnailImage: {
-      width: "100%",
-      height: "100%",
-      resizeMode: "contain", // or "cover" if you want it to fill the box
-    },
-    placeholderBox: {
-      width: "100%",
-      aspectRatio: 1,
-      justifyContent: "center",
-      alignItems: "center",
-      backgroundColor: "#F8F8F8",
-      borderRadius: 10,
-    },
-    thumbnailText: {
-      color: "#A8A8A8",
-      fontSize: 12,
-      marginTop: 6,
-    },
-    wordText: { 
-      fontSize: 16, 
-      fontWeight: "600", 
-      color: "#E64C3C", 
-    },
+  safeArea: {
+    flex: 1,
+    paddingTop: STATUSBAR_HEIGHT,
+    backgroundColor: "#fff"
+  },
+  header: {
+    height: 60,
+    justifyContent: "center",
+    alignItems: "center",
+    borderBottomWidth: 1,
+    borderColor: "#eee",
+    backgroundColor: "#fff",
+  },
+  headerText: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#000"
+  },
+  container: {
+    flex: 1,
+    flexDirection: "row"
+  },
+  leftPane: {
+    width: 70,
+    borderRightWidth: 1,
+    borderColor: "#eee",
+    alignItems: "center"
+  },
+  iconButton: {
+    padding: 15,
+    marginVertical: 5,
+    borderRadius: 10
+  },
+  activeCategory: {
+    backgroundColor: "#FDECEA"
+  },
+  wordsContainer: {
+    flex: 1,
+    padding: 16
+  },
+  categoryHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12
+  },
+  backButton: {
+    width: 40,
+    alignItems: "center"
+  },
+  categoryTitleWrapper: {
+    flex: 1,
+    alignItems: "center"
+  },
+  categoryTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#E64C3C"
+  },
+  wordList: {
+    paddingBottom: 16,
+  },
+  wordCard: {
+    width: (width - 70 - 48) / 2,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#E64C3C",
+    alignItems: "center",
+  },
+  animationBox: {
+    width: "100%",
+    aspectRatio: 1, // makes it a perfect square
+    borderRadius: 10,
+    overflow: "hidden",
+    marginBottom: 8,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  thumbnailImage: {
+    width: "100%",
+    height: "100%",
+    resizeMode: "contain", // or "cover" if you want it to fill the box
+  },
+  placeholderBox: {
+    width: "100%",
+    aspectRatio: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#F8F8F8",
+    borderRadius: 10,
+  },
+  thumbnailText: {
+    color: "#A8A8A8",
+    fontSize: 12,
+    marginTop: 6,
+  },
+  wordText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#E64C3C",
+  },
 
 
-    detailView: { 
-        flex: 1, 
-        justifyContent: "space-between", 
-        alignItems: "center", 
-    },
-    detailWord: { 
-        fontSize: 26, 
-        fontWeight: "bold", 
-        color: "#000", 
-        marginTop: 10 
-    },
-    bigAnimationBox: { 
-        width: width - 100, 
-        height: 400, 
-        backgroundColor: "#FDECEA", 
-        borderRadius: 15, 
-        overflow: "hidden",
-    },
-    placeholderBox: {
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-    },
-    placeholderText: {
-        marginTop: 12,
-        fontSize: 16,
-        color: "#A8A8A8",
-        fontStyle: "italic",
-    },
-    controls: { 
-        flexDirection: "row", 
-        justifyContent: "space-between", 
-        alignItems: "center", 
-        width: "100%", 
-        paddingHorizontal: 40, 
-        marginBottom: 20 
-    },
-    controlBtn: { 
-        alignItems: "center" 
-    },
-    replayBtn: { 
-        alignItems: "center" 
-    },
-    controlText: { 
-        fontSize: 14, 
-        marginTop: 4 
-    },
+  detailView: {
+    flex: 1,
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  detailWord: {
+    fontSize: 26,
+    fontWeight: "bold",
+    color: "#000",
+    marginTop: 10
+  },
+  bigAnimationBox: {
+    width: width - 100,
+    height: 400,
+    backgroundColor: "#FDECEA",
+    borderRadius: 15,
+    overflow: "hidden",
+  },
+  placeholderBox: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  placeholderText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: "#A8A8A8",
+    fontStyle: "italic",
+  },
+  controls: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    width: "100%",
+    paddingHorizontal: 40,
+    marginBottom: 20
+  },
+  controlBtn: {
+    alignItems: "center"
+  },
+  replayBtn: {
+    alignItems: "center"
+  },
+  controlText: {
+    fontSize: 14,
+    marginTop: 4
+  },
 });

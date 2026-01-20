@@ -34,5 +34,8 @@
     "three": "^0.166.0",
     "three-stdlib": "^2.36.0"
   },
-  "private": true
+  "private": true,
+  "devDependencies": {
+    "babel-preset-expo": "^54.0.9"
+  }
 }
