@@ -30,13 +30,16 @@ const categories = [
 ];
 
 const words = {
-  Alphabet: ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "Ñ", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"],
+  Alphabet: ["Try", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "Ñ", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"],
   Numbers: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"],
   "Basic Expressions": ["Bye", "Good afternoon", "Good evening", "Good morning", "See you later", "See you tomorrow"],
+  "Time & Frequency": ["Absent", "Always", "Late", "Later", "Never", "Recent"],
+  "Physical Appearance": ["Dimple", "Long Hair", "Nose", "Short", "Tall"],
   "SOGIESC": ["Anti-discrimination ordinance", "Bisexual", "Cisgender", "Feminine", "Gay", "Genderqueer", "Lesbian", "Masculine", "Sexual orientation", "SOGIESC", "Transgender"],
 };
 
 const models = {
+  // Numbers
   0: [require("../../assets/models/numbers/0.glb")],
   1: [require("../../assets/models/numbers/1.glb")],
   2: [require("../../assets/models/numbers/2.glb")],
@@ -47,7 +50,10 @@ const models = {
   7: [require("../../assets/models/numbers/7.glb")],
   8: [require("../../assets/models/numbers/8.glb")],
   9: [require("../../assets/models/numbers/9.glb")],
-  "A": [require("../../assets/models/alphabet/A.glb")],
+
+  // Alphabet
+  "Try": [require("../../assets/models/C3.glb")],
+  "A": [require("../../assets/models/alphabet/AA.glb")],
   "B": [require("../../assets/models/alphabet/B.glb")],
   "C": [require("../../assets/models/alphabet/C.glb")],
   "D": [require("../../assets/models/alphabet/D.glb")],
@@ -74,12 +80,31 @@ const models = {
   "X": [require("../../assets/models/alphabet/X.glb")],
   "Y": [require("../../assets/models/alphabet/Y.glb")],
   "Z": [require("../../assets/models/alphabet/Z.glb")],
+
+  // Basic Expressions
   "Bye": [require("../../assets/models/basic-expressions/bye.glb")],
   "Good afternoon": [require("../../assets/models/basic-expressions/good_afternoon.glb")],
   "Good evening": [require("../../assets/models/basic-expressions/good_evening.glb")],
   "Good morning": [require("../../assets/models/basic-expressions/good_morning.glb")],
   "See you later": [require("../../assets/models/basic-expressions/see_you_later.glb")],
   "See you tomorrow": [require("../../assets/models/basic-expressions/see_you_tomorrow.glb")],
+
+  // Time & Frequency
+  "Absent": [require("../../assets/models/time_frequency/Absent.glb")],
+  "Always": [require("../../assets/models/time_frequency/Always.glb")],
+  "Late": [require("../../assets/models/time_frequency/Late.glb")],
+  "Later": [require("../../assets/models/time_frequency/Later.glb")],
+  "Never": [require("../../assets/models/time_frequency/Never.glb")],
+  "Recent": [require("../../assets/models/time_frequency/Recent.glb")],
+
+  // Physical Appearance
+  "Dimple": [require("../../assets/models/physical_characteristics/Dimple.glb")],
+  "Long Hair": [require("../../assets/models/physical_characteristics/LongHair.glb")],
+  "Nose": [require("../../assets/models/physical_characteristics/Nose.glb")],
+  "Short": [require("../../assets/models/physical_characteristics/Short.glb")],
+  "Tall": [require("../../assets/models/physical_characteristics/Tall.glb")],
+
+  // SOGIESC 
   "Anti-discrimination ordinance": [require("../../assets/models/sogiesc/anti_discrimination_ordinance.glb")],
   "Bisexual": [require("../../assets/models/sogiesc/bisexual.glb")],
   "Cisgender": [require("../../assets/models/sogiesc/cisgender.glb")],
