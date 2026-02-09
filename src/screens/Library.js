@@ -162,7 +162,7 @@ const alphabetThumbnails = {
   "L": require("../../assets/thumbnails/L.png"),
   "M": require("../../assets/thumbnails/M.png"),
   "N": require("../../assets/thumbnails/N.png"),
-  "Ñ": require("../../assets/thumbnails/N.png"), // Fallback to N if you don't have Ñ specific
+  "Ñ": require("../../assets/thumbnails/Nye.png"), // Fallback to N if you don't have Ñ specific
   "O": require("../../assets/thumbnails/O.png"),
   "P": require("../../assets/thumbnails/P.png"),
   "Q": require("../../assets/thumbnails/Q.png"),
@@ -175,6 +175,16 @@ const alphabetThumbnails = {
   "X": require("../../assets/thumbnails/X.png"),
   "Y": require("../../assets/thumbnails/Y.png"),
   "Z": require("../../assets/thumbnails/Z.png"),
+  0: require("../../assets/thumbnails/0.png"),
+  1: require("../../assets/thumbnails/1.png"),
+  2: require("../../assets/thumbnails/2.png"),  
+  3: require("../../assets/thumbnails/3.png"),
+  4: require("../../assets/thumbnails/4.png"),
+  5: require("../../assets/thumbnails/5.png"),
+  6: require("../../assets/thumbnails/6.png"),
+  7: require("../../assets/thumbnails/7.png"),
+  8: require("../../assets/thumbnails/8.png"),
+  9: require("../../assets/thumbnails/9.png"),
 };
 
 export default function Library() {
