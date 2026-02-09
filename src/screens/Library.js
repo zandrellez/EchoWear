@@ -6,6 +6,12 @@ import WordFocus from "../components/WordFocus";
 
 const { width } = Dimensions.get("window");
 
+// --- LAYOUT CONFIG (2 COLUMNS) ---
+const CONTAINER_PADDING = 16;
+const CARD_MARGIN = 8;
+// Calculation: (Screen Width - Container Padding) / 2 columns - Card Margins
+const CARD_WIDTH = (width - (CONTAINER_PADDING * 2)) / 2 - (CARD_MARGIN * 2);
+
 // 1. DEFINE ASSETS SAFELY
 const categoryAssets = {
   "Alphabet": require("../../assets/models/ALPHABET.glb"),
@@ -62,8 +68,22 @@ const animationMap = {
   // Basic Expressions
 
   // Greetings & Farewells
+  "Bye": "GaF_Bye",
+  "Good afternoon": "GaF_GoodAfternoon",
+  "Good evening": "GaF_GoodEvening",
+  "Good morning": "GaF_GoodMorning",
+  "See you later": "GaF_SeeYouLater",
+  "See you tomorrow": "GaF_SeeYouTomorrow",
 
   // Time & Frequency
+  "Absent": "TaF_Absent",
+  "Always": "TaF_Always",
+  "Late": "TaF_Late",
+  "Never": "TaF_Never",
+  "Recent": "TaF_Recent",
+  "Later": "TaF_Later",
+  "Yesterday": "TaF_Yesterday",
+  "Tomorrow": "TaF_Tomorrow",
 
   //Physical Appearance
   "Tall": "PA_Tall",
@@ -74,6 +94,17 @@ const animationMap = {
   "Short Hair": "PA_ShortHair",
 
   // SOGIESC
+  "Anti-discrimination Ordinance": "SOGIESC_Anti-discriminationOrdinance",
+  "Bisexual": "SOGIESC_Bisexual",
+  "Cisgender": "SOGIESC_Cisgender",
+  "Feminine": "SOGIESC_Feminine",
+  "Gay": "SOGIESC_Gay",
+  "Genderqueer": "SOGIESC_Genderqueer",
+  "Lesbian": "SOGIESC_Lesbian",
+  "Sexual Orientation": "SOGIESC_SexualOrientation",
+  "SOGIESC": "SOGIESC_SOGIESC",
+  "Transgender": "SOGIESC_Transgender",
+  "Masculine": "SOGIESC_Masculine",
 }
 
 const categories = [
@@ -116,31 +147,24 @@ const words = {
   ]
 }
 
-const thumbnails = {
-  'A': require("../../assets/thumbnails/a.png")
-}
-
 export default function Library() {
   const [selectedCategory, setSelectedCategory] = useState("Alphabet");
   const [selectedWordIndex, setSelectedWordIndex] = useState(null);
 
-  // SAFETY CHECK 1: Default to empty array if category is undefined
   const currentWords = words[selectedCategory] || [];
   const selectedWord = selectedWordIndex !== null ? currentWords[selectedWordIndex] : null;
-
-  // SAFETY CHECK 2: Get Source safely
   const currentModelSource = categoryAssets[selectedCategory];
 
+  // Get Icon for Fallback
+  const currentCategoryIcon = categories.find(c => c.key === selectedCategory)?.icon || "shapes-outline";
+
   useEffect(() => {
-    // Only preload existing assets
+    // Preload Logic
     const assetsToLoad = Object.values(categoryAssets).filter(Boolean);
     if(assetsToLoad.length > 0) {
         const preloadModels = async () => {
-            try {
-                await Promise.all(assetsToLoad.map((m) => Asset.fromModule(m).downloadAsync()));
-            } catch (e) {
-                console.log("Preload warning:", e);
-            }
+            try { await Promise.all(assetsToLoad.map((m) => Asset.fromModule(m).downloadAsync())); } 
+            catch (e) { console.log("Preload warning:", e); }
         };
         preloadModels();
     }
@@ -148,10 +172,7 @@ export default function Library() {
 
   useEffect(() => {
     const backAction = () => {
-      if (selectedWordIndex !== null) {
-        setSelectedWordIndex(null);
-        return true;
-      }
+      if (selectedWordIndex !== null) { setSelectedWordIndex(null); return true; }
       return false;
     };
     const backHandler = BackHandler.addEventListener("hardwareBackPress", backAction);
@@ -165,14 +186,14 @@ export default function Library() {
     if (selectedWordIndex > 0) setSelectedWordIndex(selectedWordIndex - 1);
   };
 
-  // --- RENDER ---
+  // --- RENDER FOCUS MODE ---
   if (selectedWordIndex !== null) {
     return (
       <WordFocus 
         word={selectedWord}
         category={selectedCategory}
-        // Pass null if source doesn't exist (e.g. for Numbers)
-        modelSource={currentModelSource}
+        categoryIcon={currentCategoryIcon}
+        modelSource={categoryAssets[selectedCategory] || null}
         animationName={animationMap[selectedWord] || selectedWord}
         onBack={() => setSelectedWordIndex(null)}
         onNext={goNext}
@@ -186,49 +207,86 @@ export default function Library() {
     );
   }
 
+  // --- RENDER LIBRARY MENU ---
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerText}>Library</Text>
       </View>
 
+      {/* Categories: "Story Style" Circles */}
       <View style={styles.categoryContainer}>
         <FlatList
           data={categories}
           horizontal
           showsHorizontalScrollIndicator={false}
-          renderItem={({ item }) => (
-            <TouchableOpacity 
-              style={[styles.catPill, selectedCategory === item.key && styles.catPillActive]}
-              onPress={() => setSelectedCategory(item.key)}
-            >
-              <Ionicons name={item.icon} size={20} color={selectedCategory === item.key ? "#FFF" : "#666"} />
-              <Text style={[styles.catText, selectedCategory === item.key && {color:"#FFF"}]}>{item.key}</Text>
-            </TouchableOpacity>
-          )}
+          contentContainerStyle={{ paddingHorizontal: 10 }}
+          renderItem={({ item }) => {
+            const isActive = selectedCategory === item.key;
+            return (
+              <TouchableOpacity 
+                style={styles.storyItem} 
+                onPress={() => setSelectedCategory(item.key)}
+                activeOpacity={0.7}
+              >
+                {/* Circle Container */}
+                <View style={[styles.storyCircle, isActive && styles.storyCircleActive]}>
+                  <Ionicons 
+                    name={item.icon} 
+                    size={24} 
+                    color={isActive ? "#FFF" : "#666"} 
+                  />
+                </View>
+                
+                {/* Label Below */}
+                <Text style={[styles.storyText, isActive && styles.storyTextActive]}>
+                  {item.key}
+                </Text>
+              </TouchableOpacity>
+            );
+          }}
         />
       </View>
 
+      {/* Word Grid - 2 Columns */}
       <FlatList 
         data={currentWords}
         keyExtractor={(item) => item}
-        numColumns={3}
-        contentContainerStyle={{padding: 10}}
-        // Handle empty categories
+        numColumns={2} // <--- CHANGED TO 2
+        contentContainerStyle={{ padding: CONTAINER_PADDING }}
         ListEmptyComponent={
             <View style={{padding: 20, alignItems: 'center'}}>
                 <Text style={{color: '#999'}}>No words in this category yet.</Text>
             </View>
         }
-        renderItem={({ item, index }) => (
-          <TouchableOpacity style={styles.wordCard} onPress={() => setSelectedWordIndex(index)}>
-            <View style={styles.iconBox}>
-               {/* Safety check for charAt */}
-               <Text style={styles.wordLetter}>{item ? item.charAt(0) : "?"}</Text>
-            </View>
-            <Text style={styles.wordLabel}>{item}</Text>
-          </TouchableOpacity>
-        )}
+        renderItem={({ item, index }) => {
+          return (
+            <TouchableOpacity 
+               style={styles.wordCard} 
+               onPress={() => setSelectedWordIndex(index)}
+            >
+              <View style={styles.cardInner}>
+                 {/* ALWAYS SHOW ICON/LETTER FALLBACK (No Thumbnails) */}
+                 <View style={styles.iconFallback}>
+                    {/* Show Letter for short words, Icon for longer phrases */}
+                    {item.length < 5 ? (
+                        <Text style={styles.wordLetter}>{item.charAt(0)}</Text>
+                    ) : (
+                        <Ionicons name={currentCategoryIcon} size={32} color="#E64C3C" />
+                    )}
+                 </View>
+              </View>
+              
+              <Text 
+                style={styles.wordLabel} 
+                numberOfLines={2} 
+                ellipsizeMode="tail"
+              >
+                {item}
+              </Text>
+            </TouchableOpacity>
+          );
+        }}
       />
     </View>
   );
@@ -238,12 +296,77 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff", paddingTop: 40 },
   header: { paddingHorizontal: 20, marginBottom: 10 },
   headerText: { fontSize: 28, fontWeight: "bold", color: "#333" },
-  categoryContainer: { height: 60, paddingHorizontal: 10 },
-  catPill: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F0F0F0', paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, marginRight: 10, height: 40 },
-  catPillActive: { backgroundColor: '#E64C3C' },
-  catText: { marginLeft: 8, fontWeight: '600', color: '#666' },
-  wordCard: { flex: 1, margin: 6, height: 110, backgroundColor: "#fff", borderRadius: 16, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#F0F0F0", elevation: 2 },
-  iconBox: { width: 45, height: 45, borderRadius: 25, backgroundColor: "#FFF0F0", justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
-  wordLetter: { fontSize: 20, fontWeight: "bold", color: "#E64C3C" },
-  wordLabel: { fontSize: 14, fontWeight: "600", color: "#333" }
+  
+categoryContainer: { 
+    height: 100, // Taller to fit circle + text
+    marginBottom: 10 
+  },
+  storyItem: { 
+    alignItems: 'center', 
+    marginRight: 16, 
+    width: 70, // Fixed width ensures text wraps nicely if needed
+  },
+  storyCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#F5F5F5', // Light gray inactive
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 6,
+    // Optional: Add a subtle border
+    borderWidth: 1,
+    borderColor: '#EEEEEE'
+  },
+  storyCircleActive: {
+    backgroundColor: '#E64C3C', // Your brand color
+    borderColor: '#E64C3C',
+    elevation: 4, // Shadow for active item
+    shadowColor: "#E64C3C",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  storyText: {
+    fontSize: 11,
+    color: '#888',
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  storyTextActive: {
+    color: '#E64C3C',
+    fontWeight: 'bold',
+  },
+  // --- UPDATED CARD STYLES (2 COLUMNS) ---
+  wordCard: { 
+    width: CARD_WIDTH, // Calculated width for 2 columns
+    height: 140,       // Slightly taller for better spacing
+    margin: CARD_MARGIN,
+    backgroundColor: "#fff", 
+    borderRadius: 20, 
+    alignItems: "center", 
+    justifyContent: "center", // Center align content vertically
+    padding: 12,
+    borderWidth: 1, 
+    borderColor: "#F0F0F0", 
+    elevation: 3,
+    shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: {width:0, height:4}
+  },
+  cardInner: { 
+    marginBottom: 10, 
+    justifyContent: 'center', 
+    alignItems: 'center' 
+  },
+  iconFallback: {
+    width: 55, height: 55, borderRadius: 27.5, 
+    backgroundColor: "#FFF0F0", 
+    justifyContent: 'center', alignItems: 'center'
+  },
+  wordLetter: { fontSize: 24, fontWeight: "bold", color: "#E64C3C" },
+  wordLabel: { 
+    fontSize: 15, 
+    fontWeight: "600", 
+    color: "#333", 
+    textAlign: "center" // Center align text
+  }
 });
