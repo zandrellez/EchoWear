@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, FlatList, BackHandler, Dimensions } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, FlatList, Image, BackHandler, Dimensions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Asset } from "expo-asset";
 import WordFocus from "../components/WordFocus"; 
@@ -147,6 +147,36 @@ const words = {
   ]
 }
 
+const alphabetThumbnails = {
+  "A": require("../../assets/thumbnails/A.png"),
+  "B": require("../../assets/thumbnails/B.png"),
+  "C": require("../../assets/thumbnails/C.png"),
+  "D": require("../../assets/thumbnails/D.png"),
+  "E": require("../../assets/thumbnails/E.png"),
+  "F": require("../../assets/thumbnails/F.png"),
+  "G": require("../../assets/thumbnails/G.png"),
+  "H": require("../../assets/thumbnails/H.png"),
+  "I": require("../../assets/thumbnails/I.png"),
+  "J": require("../../assets/thumbnails/J.png"),
+  "K": require("../../assets/thumbnails/K.png"),
+  "L": require("../../assets/thumbnails/L.png"),
+  "M": require("../../assets/thumbnails/M.png"),
+  "N": require("../../assets/thumbnails/N.png"),
+  "Ñ": require("../../assets/thumbnails/N.png"), // Fallback to N if you don't have Ñ specific
+  "O": require("../../assets/thumbnails/O.png"),
+  "P": require("../../assets/thumbnails/P.png"),
+  "Q": require("../../assets/thumbnails/Q.png"),
+  "R": require("../../assets/thumbnails/R.png"),
+  "S": require("../../assets/thumbnails/S.png"),
+  "T": require("../../assets/thumbnails/T.png"),
+  "U": require("../../assets/thumbnails/U.png"),
+  "V": require("../../assets/thumbnails/V.png"),
+  "W": require("../../assets/thumbnails/W.png"),
+  "X": require("../../assets/thumbnails/X.png"),
+  "Y": require("../../assets/thumbnails/Y.png"),
+  "Z": require("../../assets/thumbnails/Z.png"),
+};
+
 export default function Library() {
   const [selectedCategory, setSelectedCategory] = useState("Alphabet");
   const [selectedWordIndex, setSelectedWordIndex] = useState(null);
@@ -260,28 +290,35 @@ export default function Library() {
             </View>
         }
         renderItem={({ item, index }) => {
+          // 1. Check if a thumbnail exists for this word/letter
+          const thumbnailSource = alphabetThumbnails[item];
+
           return (
             <TouchableOpacity 
                style={styles.wordCard} 
                onPress={() => setSelectedWordIndex(index)}
             >
               <View style={styles.cardInner}>
-                 {/* ALWAYS SHOW ICON/LETTER FALLBACK (No Thumbnails) */}
-                 <View style={styles.iconFallback}>
-                    {/* Show Letter for short words, Icon for longer phrases */}
-                    {item.length < 5 ? (
-                        <Text style={styles.wordLetter}>{item.charAt(0)}</Text>
-                    ) : (
-                        <Ionicons name={currentCategoryIcon} size={32} color="#E64C3C" />
-                    )}
-                 </View>
+                 {thumbnailSource ? (
+                    // 2. IF THUMBNAIL EXISTS: Show the Image
+                    <Image 
+                      source={thumbnailSource} 
+                      style={styles.thumbnailImage} 
+                      resizeMode="contain" 
+                    />
+                 ) : (
+                    // 3. FALLBACK: Show the old Icon/Letter circle
+                    <View style={styles.iconFallback}>
+                        {item.length < 5 ? (
+                            <Text style={styles.wordLetter}>{item.charAt(0)}</Text>
+                        ) : (
+                            <Ionicons name={currentCategoryIcon} size={32} color="#E64C3C" />
+                        )}
+                    </View>
+                 )}
               </View>
               
-              <Text 
-                style={styles.wordLabel} 
-                numberOfLines={2} 
-                ellipsizeMode="tail"
-              >
+              <Text style={styles.wordLabel} numberOfLines={2}>
                 {item}
               </Text>
             </TouchableOpacity>
@@ -356,6 +393,12 @@ categoryContainer: {
     marginBottom: 10, 
     justifyContent: 'center', 
     alignItems: 'center' 
+  },
+  thumbnailImage: {
+    width: 90,       // Slightly larger to fill the card center
+    height: 90,
+    borderRadius: 10,
+    marginTop: 5,
   },
   iconFallback: {
     width: 55, height: 55, borderRadius: 27.5, 

@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Modal, FlatList } from "react
 import { Ionicons } from "@expo/vector-icons";
 import ModelViewer from "./ModelViewer";
 import { useTextToSpeech } from "./useTextToSpeech"; 
+import * as MediaLibrary from 'expo-media-library';
 
 export default function WordFocus({ 
   word, category, categoryIcon, 
@@ -22,6 +23,21 @@ export default function WordFocus({
 
   const showCharacterWatermark = category === "Alphabet" || category === "Numbers";
   const isGridModal = category === "Alphabet" || category === "Numbers";
+
+  const captureThumbnail = async () => {
+    // 1. Request permission
+    const { status } = await MediaLibrary.requestPermissionsAsync();
+    if (status !== 'granted') return;
+
+    // 2. Take the picture
+    const uri = await modelRef.current?.takeSnapshot();
+    
+    // 3. Save to Gallery
+    if (uri) {
+      await MediaLibrary.saveToLibraryAsync(uri);
+      alert("Thumbnail saved to Gallery! 📸");
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -61,13 +77,20 @@ export default function WordFocus({
             <Ionicons name="close" size={24} color="#E64C3C" />
          </TouchableOpacity>
       </View>
+      <TouchableOpacity onPress={captureThumbnail} style={{position: 'absolute', top: 100, right: 20, zIndex: 999, backgroundColor: 'red', padding: 5}}>
+          <Text style={{color: 'white'}}>Save Thumb</Text>
+       </TouchableOpacity>
 
       {/* 3. Glass Controls */}
       <View style={styles.glassControls}>
         <View style={styles.glassPill}>
-           {[0.25, 0.5, 1, 2].map((speed) => (
+           {/* ADDED 0 TO THE LIST FOR PAUSE */}
+           {[0, 0.25, 0.5, 1, 2].map((speed) => (
              <TouchableOpacity key={speed} onPress={() => setAnimationSpeed(speed)}>
-                <Text style={[styles.speedText, animationSpeed === speed && styles.activeSpeed]}>{speed}x</Text>
+                <Text style={[styles.speedText, animationSpeed === speed && styles.activeSpeed]}>
+                    {/* IF SPEED IS 0, SHOW PAUSE ICON */}
+                    {speed === 0 ? "⏸" : speed + "x"}
+                </Text>
              </TouchableOpacity>
            ))}
         </View>
