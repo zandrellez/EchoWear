@@ -1,7 +1,7 @@
 // ../components/Model.js
-{/*import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { loadTensorflowModel } from 'react-native-fast-tflite';
-import labels from '../../assets/models/labels.json';
+import labels from '../../assets/algorithm/labels.json';
 
 export default function useGloveModel(gloveData) {
 const [model, setModel] = useState(null);
@@ -12,7 +12,7 @@ useEffect(() => {
 const loadModel = async () => {
 try {
 const loadedModel = await loadTensorflowModel(
-require('../../assets/models/gesture_model.tflite')
+require('../../assets/algorithm/echowear_model.tflite')
 );
 setModel(loadedModel);
 setPrediction('Model loaded, waiting for data...');
@@ -28,46 +28,41 @@ loadModel();
 useEffect(() => {
   if (!model || !gloveData) return;
 
-  if (!(gloveData instanceof Float32Array)) {
-    console.log('❌ gloveData is NOT Float32Array:', typeof gloveData);
-    return;
-  }
+  const runPrediction = async () => {
+    try {
+      // 1. Await the inference
+      const output = await model.run([gloveData]); 
 
-  try {
-    console.log('📦 Running model with Float32Array...');
+      if (output && output.length > 0) {
+        // 2. Find the highest probability
+        const maxVal = Math.max(...output);
+        const predIndex = output.indexOf(maxVal);
 
-    // Run TFLite model
-    const rawOutput = model.run([gloveData]);
-
-    // Fast TFLite may wrap output in _data
-    const output = rawOutput?._data || rawOutput;
-
-    if (!output) {
-      console.log('❌ Output is null or invalid:', rawOutput);
-      return;
+        // 3. Set a confidence threshold (e.g., 85%)
+        if (maxVal > 0.50) { 
+          const gesture = labels[predIndex];
+          setPrediction(gesture || "Unknown Gesture");
+          console.log(`✅ Predicted: ${gesture} (${(maxVal * 100).toFixed(1)}%)`);
+        } else {
+          setPrediction("Scanning..."); 
+          // Add this log to see the actual confidence level
+          console.log(`📡 Low Confidence: ${(maxVal * 100).toFixed(1)}% for index ${predIndex}`);
+        }
+      }
+    } catch (err) {
+      console.error('❌ Prediction error:', err);
     }
+  };
 
-    console.log('📤 Output:', output);
-    console.log('🔢 Output length:', output.length);
-
-    // Prediction index
-    const max = Math.max(...output);
-    const predIndex = output.indexOf(max);
-
-    console.log('🏆 Max value:', max, 'at index', predIndex);
-    setPrediction(labels[predIndex]);
-
-  } catch (err) {
-    console.error('❌ Prediction error:', err);
-  }
+  runPrediction();
 }, [gloveData, model]);
 
 
 return { prediction, modelReady };
 }
-*/}
+
 // MOCK MODEL FOR DEMO — Sequential gestures, stops at last gesture
-import { useState, useEffect, useRef } from 'react';
+{/*import { useState, useEffect, useRef } from 'react';
 
 export default function useGloveModel(gloveData) {
   const [prediction, setPrediction] = useState("Loading model...");
@@ -136,3 +131,4 @@ export default function useGloveModel(gloveData) {
 
   return { prediction, modelReady };
 }
+*/}

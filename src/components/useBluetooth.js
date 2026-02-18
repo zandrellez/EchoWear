@@ -109,27 +109,37 @@ console.log('🔧 MTU requested: 512 bytes');
         const rawStr = Buffer.from(characteristic.value, 'base64').toString('utf8');
         let arr = rawStr.split(',').map(x => parseFloat(x.trim()));
 
-        // Validate row
+        // 1. Validate row matches the expected 11 features (5 flex + 6 MPU)
         if (arr.length < features || arr.some(v => isNaN(v))) {
           console.log('⚠️ Ignored invalid row:', arr);
           return;
         }
 
-        // Keep only first `features` values
-        arr = arr.slice(0, features);
+        // 2. APPLY NORMALIZATION (Crucial for LSTM Accuracy)
+        // This must match your Python MinMaxScaler logic
+        const normalizedRow = arr.slice(0, features).map((val, index) => {
+          if (index < 5) { 
+            // Flex Sensors: Scale 1-50 range to 0.0-1.0
+            return (val - 1) / (50 - 1); 
+          } else {
+            // MPU6050: Your Arduino code already constrains these -1 to 1.
+            // We shift them to 0-1 range to match the flex sensors.
+            return (val + 1) / 2;
+          }
+        });
 
-        bufferRef.current.push(arr);
+        // 3. Update the sliding window buffer
+        bufferRef.current.push(normalizedRow);
 
-        if (bufferRef.current.length > timesteps) bufferRef.current.shift();
+        if (bufferRef.current.length > timesteps) {
+          bufferRef.current.shift();
+        }
 
+        // 4. If we have a full 2-second window (60 frames), send to Model
         if (bufferRef.current.length === timesteps) {
           const dataCopy = [...bufferRef.current];
-          console.log('📊 Final 60x11 frame ready');
-  console.log('📏 Rows:', dataCopy.length);
-  console.log('📏 Columns each row:', dataCopy[0].length);
           
-
-          // Flatten for TFLite
+          // Flatten for TFLite (60 * 11 = 660 floats)
           const flatInput = new Float32Array(timesteps * features);
           for (let i = 0; i < timesteps; i++) {
             for (let j = 0; j < features; j++) {
@@ -137,12 +147,8 @@ console.log('🔧 MTU requested: 512 bytes');
             }
           }
 
-          {/*console.log('📊 GloveData ready:', dataCopy);*/}
-
-            console.log('📦 Flattened input length:', flatInput.length); // should be 660
-
-setGloveData(flatInput);
-          // Optional callback to run your model
+          console.log('📦 Processed 660 values (Normalized)');
+          setGloveData(flatInput);
           if (onData) onData(flatInput);
         }
       } catch (err) {
