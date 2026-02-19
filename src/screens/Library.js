@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, FlatList, Image, BackHandler, Dimensions } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, FlatList, Image, BackHandler, Dimensions, LogBox } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Asset } from "expo-asset";
 import WordFocus from "../components/WordFocus"; 
 
 const { width } = Dimensions.get("window");
+
+LogBox.ignoreLogs(["THREE.GLTFLoader: Couldn't load texture"]);
 
 // --- LAYOUT CONFIG (2 COLUMNS) ---
 const CONTAINER_PADDING = 16;
@@ -241,7 +243,7 @@ const modelThumbnails = {
   "Straight Hair": require("../../assets/thumbnails/StraightHair.png"),
   "Tall": require("../../assets/thumbnails/Tall.png"),
   "Short": require("../../assets/thumbnails/Short.png"),  
-  
+
   // SOGIESC
   "Anti-discrimination ordinance": require("../../assets/thumbnails/Anti-discriminationOrdinance.png"),
   "Bisexual": require("../../assets/thumbnails/Bisexual.png"),
@@ -397,7 +399,7 @@ export default function Library() {
                  )}
               </View>
               
-              <Text style={styles.wordLabel} numberOfLines={2}>
+              <Text style={styles.wordLabel} numberOfLines={3}>
                 {item}
               </Text>
             </TouchableOpacity>
@@ -456,12 +458,12 @@ categoryContainer: {
   // --- UPDATED CARD STYLES (2 COLUMNS) ---
   wordCard: { 
     width: CARD_WIDTH, // Calculated width for 2 columns
-    height: 140,       // Slightly taller for better spacing
+    height: 180,       // Slightly taller for better spacing
     margin: CARD_MARGIN,
     backgroundColor: "#fff", 
     borderRadius: 20, 
     alignItems: "center", 
-    justifyContent: "center", // Center align content vertically
+    justifyContent: "space-between", // Center align content vertically
     padding: 12,
     borderWidth: 1, 
     borderColor: "#F0F0F0", 
@@ -469,15 +471,16 @@ categoryContainer: {
     shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: {width:0, height:4}
   },
   cardInner: { 
-    marginBottom: 10, 
+    flex: 1,           
+    width: '100%',
     justifyContent: 'center', 
-    alignItems: 'center' 
+    alignItems: 'center',
+    marginBottom: 8, 
   },
   thumbnailImage: {
-    width: 90,       // Slightly larger to fill the card center
-    height: 90,
-    borderRadius: 10,
-    marginTop: 5,
+    width: '100%',    
+    height: '100%',
+    resizeMode: 'contain', 
   },
   iconFallback: {
     width: 55, height: 55, borderRadius: 27.5, 
@@ -486,9 +489,10 @@ categoryContainer: {
   },
   wordLetter: { fontSize: 24, fontWeight: "bold", color: "#E64C3C" },
   wordLabel: { 
-    fontSize: 15, 
+    fontSize: 13, 
     fontWeight: "600", 
     color: "#333", 
-    textAlign: "center" // Center align text
+    textAlign: "center", 
+    lineHeight: 16,
   }
 });
