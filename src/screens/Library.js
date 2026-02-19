@@ -16,7 +16,7 @@ const CARD_WIDTH = (width - (CONTAINER_PADDING * 2)) / 2 - (CARD_MARGIN * 2);
 const categoryAssets = {
   "Alphabet": require("../../assets/models/ALPHABET.glb"),
   "Numbers": require("../../assets/models/NUMBERS.glb"),
-  // "Basic Expressions": require("../../assets/models/BASIC_EXPRESSIONS.glb"),
+  "Basic Expressions": require("../../assets/models/BASIC_EXPRESSIONS.glb"),
   "Greetings & Farewells": require("../../assets/models/GREETINGS_FAREWELLS.glb"),
   "Time & Frequency": require("../../assets/models/TIME_FREQUENCY.glb"),
   "Physical Appearance": require("../../assets/models/PHYSICAL_APPEARANCE.glb"),
@@ -66,6 +66,24 @@ const animationMap = {
   9: "Number_9",
 
   // Basic Expressions
+  // "Come here": "BE_ComeHere",
+  // "Don’t Know": "BE_DontKnow",
+  "Don’t understand": "BE_DON'TUNDERSTAND",
+  // "Excuse me": "BE_ExcuseMe",
+  "Know": "BE_KNOW",
+  // "Bless (Mano po)": "BE_BlessManoPo",
+  "No": "BE_NO",
+  // "OK": "BE_OK",
+  // "Please": "BE_Please",
+  "Sorry": "BE_SORRY",
+  // "Understand": "BE_Understand",
+  // "Uy": "BE_Uy",
+  "Wait": "BE_WAIT",
+  "What?": "BE_WHAT",
+  // "When?": "BE_When?",
+  // "Why?": "BE_Why?",
+  // "Wrong": "BE_Wrong",
+  // "Yes": "BE_Yes",
 
   // Greetings & Farewells
   "Bye": "GaF_Bye",
@@ -91,7 +109,7 @@ const animationMap = {
   "Nose": "PA_Nose",
   "Dimple": "PA_Dimple",
   "Long Hair": "PA_LongHair",
-  "Short Hair": "PA_ShortHair",
+  "Short": "PA_Short",
 
   // SOGIESC
   "Anti-discrimination Ordinance": "SOGIESC_Anti-discriminationOrdinance",
@@ -103,8 +121,8 @@ const animationMap = {
   "Lesbian": "SOGIESC_Lesbian",
   "Sexual Orientation": "SOGIESC_SexualOrientation",
   "SOGIESC": "SOGIESC_SOGIESC",
-  "Transgender": "SOGIESC_Transgender",
-  "Masculine": "SOGIESC_Masculine",
+  "Transgender": "SOGIESC_Transgender",  
+  "Masculine": "SOGIESSC_Masculine",
 }
 
 const categories = [
@@ -126,9 +144,10 @@ const words = {
     "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"
   ],
   "Basic Expressions": [
-    "Come here", "Don’t Know", "Don’t understand", "Excuse me", 
-    "Know", "Bless (Mano po)", "No", "OK", "Please", "Sorry", 
-    "Understand", "Uy", "Wait", "What?", "When?", "Why?", "Wrong", "Yes"
+    // "Come here", "Don’t Know",  "Excuse me", "Bless (Mano po)", 
+    // "OK", "Please", "Understand", "Uy", , "When?", "Why?", 
+    // "Wrong", "Yes"
+    "Don’t understand", "Know",  "No", "Sorry", "Wait", "What?"
   ],
   "Greetings & Farewells": [
     "Bye", "Good afternoon", "Good evening", "Good morning",
@@ -143,11 +162,12 @@ const words = {
   "SOGIESC": [
     "Anti-discrimination ordinance", "Bisexual", "Cisgender", 
     "Feminine", "Gay", "Genderqueer", "Lesbian", "Masculine", 
-    "Sexual orientation", "SOGIESC", "Transgender"
+    "Sexual Orientation", "SOGIESC", "Transgender"
   ]
 }
 
-const alphabetThumbnails = {
+const modelThumbnails = {
+  // Alphabet
   "A": require("../../assets/thumbnails/A.png"),
   "B": require("../../assets/thumbnails/B.png"),
   "C": require("../../assets/thumbnails/C.png"),
@@ -176,6 +196,7 @@ const alphabetThumbnails = {
   "Y": require("../../assets/thumbnails/Y.png"),
   "Z": require("../../assets/thumbnails/Z.png"),
 
+  // Numbers
   0: require("../../assets/thumbnails/0.png"),
   1: require("../../assets/thumbnails/1.png"),
   2: require("../../assets/thumbnails/2.png"),  
@@ -186,6 +207,53 @@ const alphabetThumbnails = {
   7: require("../../assets/thumbnails/7.png"),
   8: require("../../assets/thumbnails/8.png"),
   9: require("../../assets/thumbnails/9.png"),
+
+  // Basic Expressions
+  "Don’t understand": require("../../assets/thumbnails/DontUnderstand.png"),
+  "Know": require("../../assets/thumbnails/Know.png"),
+  "No": require("../../assets/thumbnails/No.png"),
+  "Sorry": require("../../assets/thumbnails/Sorry.png"),
+  "Wait": require("../../assets/thumbnails/Wait.png"),
+  "What?": require("../../assets/thumbnails/What.png"),
+
+  // Greetings & Farewells
+  "Bye": require("../../assets/thumbnails/Bye.png"),
+  "Good afternoon": require("../../assets/thumbnails/GoodAfternoon.png"),
+  "Good evening": require("../../assets/thumbnails/GoodEvening.png"),
+  "Good morning": require("../../assets/thumbnails/GoodMorning.png"),
+  "See you later": require("../../assets/thumbnails/SeeYouLater.png"),
+  "See you tomorrow": require("../../assets/thumbnails/SeeYouTomorrow.png"),
+
+  // TIme & Frequency
+  "Absent": require("../../assets/thumbnails/Absent.png"),
+  "Always": require("../../assets/thumbnails/Always.png"),
+  "Late": require("../../assets/thumbnails/Late.png"),
+  "Never": require("../../assets/thumbnails/Never.png"),
+  "Recent": require("../../assets/thumbnails/Recent.png"),
+  "Later": require("../../assets/thumbnails/Later.png"),
+  "Yesterday": require("../../assets/thumbnails/Yesterday.png"),
+  "Tomorrow": require("../../assets/thumbnails/Tomorrow.png"),
+
+  // Physical Appearance
+  "Dimple": require("../../assets/thumbnails/Dimple.png"),
+  "Nose": require("../../assets/thumbnails/Nose.png"),
+  "Long Hair": require("../../assets/thumbnails/LongHair.png"),
+  "Straight Hair": require("../../assets/thumbnails/StraightHair.png"),
+  "Tall": require("../../assets/thumbnails/Tall.png"),
+  "Short": require("../../assets/thumbnails/Short.png"),  
+  
+  // SOGIESC
+  "Anti-discrimination ordinance": require("../../assets/thumbnails/Anti-discriminationOrdinance.png"),
+  "Bisexual": require("../../assets/thumbnails/Bisexual.png"),
+  "Cisgender": require("../../assets/thumbnails/Cisgender.png"),
+  "Feminine": require("../../assets/thumbnails/Feminine.png"),
+  "Gay": require("../../assets/thumbnails/Gay.png"),
+  "Genderqueer": require("../../assets/thumbnails/Genderqueer.png"),
+  "Lesbian": require("../../assets/thumbnails/Lesbian.png"),
+  "Masculine": require("../../assets/thumbnails/Masculine.png"),
+  "Sexual Orientation": require("../../assets/thumbnails/SexualOrientation.png"),
+  "SOGIESC": require("../../assets/thumbnails/SOGIESC.png"),
+  "Transgender": require("../../assets/thumbnails/Transgender.png")
 };
 
 export default function Library() {
@@ -302,7 +370,7 @@ export default function Library() {
         }
         renderItem={({ item, index }) => {
           // 1. Check if a thumbnail exists for this word/letter
-          const thumbnailSource = alphabetThumbnails[item];
+          const thumbnailSource = modelThumbnails[item];
 
           return (
             <TouchableOpacity 
