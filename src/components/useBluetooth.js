@@ -118,15 +118,13 @@ export function useBluetooth(timesteps = 60, features = 11, onData) {
             // 2. APPLY NORMALIZATION (must match Colab training)
             // Arduino now sends RAW flex values (0-100 range, same as training CSVs)
             // Training used: flex → val/99 (global MinMax), MPU → (val+1)/2
-            const normalizedRow = arr.slice(0, features).map((val, index) => {
-              if (index < 5) {
-                // Flex: raw ADC values → divide by 100 to match training range
-                return Math.max(0, Math.min(1, val / 100));
-              } else {
-                // MPU: -1..1 → 0..1
-                return Math.max(0, Math.min(1, (val + 1) / 2));
-              }
+            // 2. APPLY NORMALIZATION (must match Colab training)
+            const normalizedRow = arr.slice(0, 11).map((val) => {
+              return Number(val);
             });
+
+            // ADD THIS TEMPORARY LOG:
+            console.log("Live Sensor Data:", normalizedRow);
 
             // 3. Update the sliding window buffer
             bufferRef.current.push(normalizedRow);

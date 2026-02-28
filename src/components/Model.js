@@ -17,9 +17,9 @@ export default function useGloveModel(gloveData) {
     const loadModel = async () => {
       try {
         const loadedModel = await loadTensorflowModel(
-          require('../../assets/algorithm/echowear_model.tflite')
+          require('../../assets/algorithm/Echowear_model.tflite')
         );
-        console.log('Model loaded. Classes:', labels.length);
+        console.log('Model loaded. Classes:', Object.keys(labels).length);
         setModel(loadedModel);
         setPrediction('Model loaded, waiting for data...');
         setModelReady(true);
@@ -73,9 +73,9 @@ export default function useGloveModel(gloveData) {
         const maxVal = Math.max(...scoresArray);
         const predIndex = scoresArray.indexOf(maxVal);
 
-        if (predIndex < 0 || predIndex >= labels.length) {
-          console.warn('predIndex out of bounds:', predIndex, '(labels:', labels.length + ')');
-          setPrediction('Model error: label mismatch');
+        const totalLabels = Object.keys(labels).length;
+        if (predIndex < 0 || predIndex >= totalLabels) {
+          console.warn('predIndex out of bounds:', predIndex, '(labels:', totalLabels + ')'); setPrediction('Model error: label mismatch');
           return;
         }
 
