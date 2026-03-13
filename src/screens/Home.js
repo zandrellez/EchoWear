@@ -27,7 +27,7 @@ import Constants from "expo-constants";
 import useGloveModel from '../components/Model';
 import { useTextToSpeech } from '../components/useTextToSpeech';
 import useSpeechToText from '../components/useSpeechToText'; 
-// [BT_CONNECT] import { useBluetooth} from '../components/useBluetooth'; 
+import { useBluetooth } from '../components/useBluetooth'; 
 import { Buffer } from "buffer";
 
 const { width } = Dimensions.get("window");
@@ -37,7 +37,6 @@ const BOTTOM_TAB_HEIGHT = 60;
 
 export default function Home() {
 
-  /* [BT_CONNECT] - Uncomment to restore Bluetooth connection
   const {
     isConnected,
     selectedDevice,
@@ -48,16 +47,6 @@ export default function Home() {
     connectToDevice,
     disconnect,
   } = useBluetooth();
-  */
-  // [BT_CONNECT] Stub values for UI development
-  const isConnected = true;
-  const selectedDevice = null;
-  const isScanning = false;
-  const devices = [];
-  const gloveData = null;
-  const scanDevices = () => {};
-  const connectToDevice = () => {};
-  const disconnect = () => {};
 
   const {
     startVAD,        // ✅ Now available
@@ -75,6 +64,7 @@ export default function Home() {
   const [showDeviceMenu, setShowDeviceMenu] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isFlipped, setIsFlipped] = useState(false);
+  const [isBypassMode, setIsBypassMode] = useState(false);
 
   const { speak, stop, isSpeaking } = useTextToSpeech();
   const { prediction, loading: modelLoading, modelReady } = useGloveModel(gloveData);
@@ -82,6 +72,7 @@ export default function Home() {
   const [isTyping, setIsTyping] = useState(false); 
   const [manualText, setManualText] = useState(''); 
   const [displayedText, setDisplayedText] = useState('');
+  const isUiConnected = isConnected || isBypassMode;
 
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
@@ -133,7 +124,6 @@ export default function Home() {
     };
   }, []);
 
-  /* [BT_CONNECT] - Uncomment to restore Bluetooth handlers
   const handleScanDevices = async () => {
     const canScan = await scanDevices();
     if (canScan) {
@@ -151,12 +141,12 @@ export default function Home() {
   const handleCloseModal = () => {
     setShowBluetoothModal(false);
   };
-  */
-  // [BT_CONNECT] Stub handlers for UI development
-  const handleScanDevices = () => {};
-  const handleConnectToDevice = () => {};
-  const handleDisconnect = () => { setShowDeviceMenu(false); };
-  const handleCloseModal = () => { setShowBluetoothModal(false); };
+
+  const handleBypassToggle = () => {
+    setIsBypassMode((prev) => !prev);
+    setShowBluetoothModal(false);
+    setShowDeviceMenu(false);
+  };
 
   return (
     <>
@@ -231,7 +221,7 @@ export default function Home() {
 
             {/* Main content */}
             <View style={{flex: 1,}}>
-              {!isConnected ? (
+              {!isUiConnected ? (
                 <>
                   <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
                     <TouchableOpacity
@@ -245,6 +235,13 @@ export default function Home() {
                       <Text style={styles.connectButtonText}>
                         {isConnecting ? 'Connecting...' : 'Connect to device'}
                       </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.bypassButton}
+                      onPress={handleBypassToggle}
+                    >
+                      <Text style={styles.bypassButtonText}>Bypass Bluetooth (UI Mode)</Text>
                     </TouchableOpacity>
 
                     <View style={[styles.messageCard, { flex: 4 }]}>
@@ -285,9 +282,9 @@ export default function Home() {
                         <View style={styles.deviceStatusRow}>
                           <Ionicons name="battery-half" size={18} color="#333" />
                           <Text style={styles.deviceBattery}>75%</Text>
-                          <Text style={[styles.deviceConnected, { color: isConnected ? '#4CAF50' : '#E53935' }]}>
-  {isConnected ? 'Connected' : 'Disconnected'}
-</Text>
+                          <Text style={[styles.deviceConnected, { color: isConnected ? '#4CAF50' : '#F57C00' }]}>
+  {isConnected ? 'Connected' : 'UI Bypass'}
+                          </Text>
 
                         </View>
                       </View>
@@ -335,6 +332,15 @@ export default function Home() {
                                 <Text style={styles.dropdownText}>Reconnect</Text>
                               </TouchableOpacity>
                             )}
+
+                            <TouchableOpacity
+                              style={styles.dropdownItem}
+                              onPress={handleBypassToggle}
+                            >
+                              <Text style={styles.dropdownText}>
+                                {isBypassMode ? 'Disable UI Bypass' : 'Enable UI Bypass'}
+                              </Text>
+                            </TouchableOpacity>
                           </View>
                         )}
                       </View>
@@ -546,6 +552,19 @@ const styles = StyleSheet.create({
     fontSize: 19,
     fontWeight: '600',
     marginLeft: 8,
+  },
+  bypassButton: {
+    borderWidth: 1,
+    borderColor: '#E53935',
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  bypassButtonText: {
+    color: '#E53935',
+    fontSize: 15,
+    fontWeight: '600',
   },
   modalOverlay: {
     flex: 1,
