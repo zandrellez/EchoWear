@@ -24,6 +24,14 @@ export default function WordFocus({
   const showCharacterWatermark = category === "Alphabet" || category === "Numbers";
   const isGridModal = category === "Alphabet" || category === "Numbers";
 
+   const handleReplay = () => {
+      modelRef.current?.replay();
+      if (word) {
+         stop();
+         speak(word);
+      }
+   };
+
 //   const captureThumbnail = async () => {
 //     // 1. Request permission
 //     const { status } = await MediaLibrary.requestPermissionsAsync();
@@ -120,7 +128,7 @@ export default function WordFocus({
             
             <TouchableOpacity 
                style={styles.replayCircle}
-               onPress={() => modelRef.current?.replay()}
+               onPress={handleReplay}
             >
                <Ionicons name="refresh" size={26} color="#FFF" />
             </TouchableOpacity>
