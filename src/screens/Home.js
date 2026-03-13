@@ -60,11 +60,12 @@ export default function Home() {
   const disconnect = () => {};
 
   const {
-    startRecording,
+    startVAD,        // ✅ Now available
     stopRecording,
     transcript,
     loading,
     isRecording,
+    isVADListening,   // ✅ Use this for UI states
   } = useSpeechToText();
 
   const insets = useSafeAreaInsets();
@@ -373,16 +374,26 @@ export default function Home() {
                       activeOpacity={0.7}
                       onPress={() => {
                         if (isSpeaking) {
-                          Alert.alert('Translating', 'Please wait until the translation finishes speaking.');
+                          Alert.alert('Translating', 'Please wait...');
                           return;
                         }
-                        isRecording ? stopRecording() : startRecording();
+                        // Button acts as manual fallback/toggle
+                        isVADListening ? stopRecording() : startVAD();
                       }}
-                      disabled={loading || isSpeaking}
-                      style={[styles.speechCard, { flex: 4 }]}
+                      style={[styles.speechCard, { flex: 4 }, isVADListening && styles.activeSpeechCard]}
                     >
                       <View style={styles.speechTextContainer}>
-                        <Text style={styles.speechTitle}>Speech to Text</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                          <Text style={styles.speechTitle}>Speech to Text</Text>
+                          
+                          {/* 🔴 NEW: Live Indicator */}
+                          {isVADListening && (
+                            <View style={styles.recordingIndicator}>
+                              <Animated.View style={[styles.redDot, { opacity: scaleAnim }]} />
+                              <Text style={styles.liveText}>Speaking</Text>
+                            </View>
+                          )}
+                        </View>
 
                         {isTyping ? (
                           <TextInput
@@ -397,15 +408,14 @@ export default function Home() {
                           <Text style={styles.speechPrompt}>
                             {loading
                               ? 'Transcribing...'
-                              : isRecording 
-                                ? 'Listening...' 
-                                : transcript || 'Waiting for speech'}
+                              : isVADListening 
+                                ? 'Listening for voice...'
+                                : transcript || 'Tap mic to start'}
                           </Text>
                         )}
                       </View>
 
                       <View style={styles.rightColumn}>
-                        {/* Toggle Text Input */}
                         <TouchableOpacity onPress={handleTextToggle} style={{ marginBottom: 10 }}>
                           <MaterialIcons
                             name="text-fields"
@@ -414,16 +424,16 @@ export default function Home() {
                           />
                         </TouchableOpacity>
 
-                        {/* Mic Button */}
                         {!keyboardVisible && !isTyping && (
                           <Animated.View
                             style={[
                               styles.micButtonAnimated,
                               {
                                 transform: [{ scale: scaleAnim }],
-                                shadowOpacity: isRecording ? 0.9 : 0.3,
-                                shadowRadius: isRecording ? 12 : 6,
-                                elevation: isRecording ? 12 : 4,
+                                // Visual feedback for both VAD listening and actual recording
+                                shadowOpacity: isVADListening ? 0.9 : 0.3,
+                                backgroundColor: isVADListening ? '#E53935' : '#888',
+                                elevation: isVADListening ? 12 : 4,
                               },
                             ]}
                           >
@@ -433,13 +443,12 @@ export default function Home() {
                                   Alert.alert('Translating', 'Please wait until the translation finishes speaking.');
                                   return;
                                 }
-                                isRecording ? stopRecording() : startRecording();
+                                isVADListening ? stopRecording() : startVAD();
                               }}
-                              // Disable the mic if it's currently processing audio OR if the phone is speaking
                               disabled={loading || isSpeaking} 
                             >
                               <Ionicons
-                                name={isRecording ? 'stop' : 'mic'}
+                                name={isVADListening ? 'stop' : 'mic'}
                                 size={32}
                                 color="white"
                               />
@@ -749,6 +758,31 @@ const styles = StyleSheet.create({
     elevation: 3,
     position: "relative",
     alignItems: 'flex-start'
+  },
+  activeSpeechCard: {
+    borderColor: '#E53935',
+    borderWidth: 1,
+  },
+  recordingIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 10,
+    backgroundColor: '#FFEBEE',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  redDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#E53935',
+    marginRight: 6,
+  },
+  liveText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#E53935',
   },
   speechTextContainer: {
     flex: 1,

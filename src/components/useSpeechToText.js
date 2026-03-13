@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Alert } from 'react-native';
 import {
   useAudioRecorder,
@@ -10,95 +10,197 @@ import {
 import * as FileSystem from 'expo-file-system/legacy';
 
 const ASSEMBLY_API_KEY = '75181ba65a4948499efb9e49ec310f4d';
+const VAD_START_THRESHOLD = -30;
+const VAD_KEEP_THRESHOLD = -33;
+const NO_VOICE_TIMEOUT_MS = 5000;
+const POST_VOICE_SILENCE_MS = 2000;
+const VAD_POLL_INTERVAL_MS = 150;
+const METER_SMOOTHING_ALPHA = 0.2;
 
 export default function useSpeechToText() {
-  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const recorder = useAudioRecorder({
+    ...RecordingPresets.HIGH_QUALITY,
+    isMeteringEnabled: true,
+  });
   const recorderState = useAudioRecorderState(recorder);
 
   const [transcript, setTranscript] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isVADListening, setIsVADListening] = useState(false);
 
-  let silenceTimer = null;
-  let silenceStart = null;
+  const vadIntervalRef = useRef(null);
+  const startedListeningAtRef = useRef(0);
+  const lastVoiceAtRef = useRef(0);
+  const hasDetectedVoiceRef = useRef(false);
+  const isStoppingRef = useRef(false);
+  const hasWarnedMissingMeteringRef = useRef(false);
+  const smoothedVolumeRef = useRef(null);
 
-  // 🎤 Start recording
-  const startRecording = async () => {
+  const clearVADMonitoring = () => {
+    if (vadIntervalRef.current) {
+      clearInterval(vadIntervalRef.current);
+      vadIntervalRef.current = null;
+    }
+
+    startedListeningAtRef.current = 0;
+    lastVoiceAtRef.current = 0;
+    hasDetectedVoiceRef.current = false;
+    hasWarnedMissingMeteringRef.current = false;
+    smoothedVolumeRef.current = null;
+  };
+
+  useEffect(() => {
+    return () => {
+      clearVADMonitoring();
+    };
+  }, []);
+
+  const prepareRecorder = async () => {
+    const { granted } = await AudioModule.requestRecordingPermissionsAsync();
+    if (!granted) {
+      Alert.alert('Permission required', 'Please allow microphone access.');
+      return false;
+    }
+
+    await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+    clearVADMonitoring();
+    isStoppingRef.current = false;
+    console.log('VAD: preparing microphone...');
+
+    await recorder.prepareToRecordAsync();
+    await recorder.record();
+    return true;
+  };
+
+  // 🎤 Start VAD (Voice Activity Detection)
+  const startVAD = async () => {
     try {
-      const { granted } = await AudioModule.requestRecordingPermissionsAsync();
-      console.log('Mic permission:', granted);
-      if (!granted) {
-        Alert.alert('Permission required', 'Please allow microphone access.');
+      if (isVADListening || recorderState.isRecording || isStoppingRef.current) {
         return;
       }
 
-      console.log('Starting recording...');
-      await setAudioModeAsync({
-        allowsRecording: true,
-        playsInSilentMode: true,
-      });
-
-      await recorder.prepareToRecordAsync();
-      await recorder.record();
-      console.log('Recording started');
-
-          // start monitoring for silence
-    silenceStart = null;
-    const checkSilence = async () => {
-      if (!recorderState.isRecording) return;
-
-      const status = await recorder.getStatus();
-      const rms = status.metering || 0; // metering: approximate loudness
-
-      // adjust threshold as needed (-60 is very quiet)
-      if (rms < -55) {
-        if (!silenceStart) silenceStart = Date.now();
-        else if (Date.now() - silenceStart > 3000) {
-          console.log("Silence detected > 3s, stopping...");
-          stopRecording();
-          return;
-        }
-      } else {
-        silenceStart = null; // reset if sound detected
+      const didStart = await prepareRecorder();
+      if (!didStart) {
+        return;
       }
 
-      silenceTimer = setTimeout(checkSilence, 500);
-    };
+      setIsVADListening(true);
+      console.log('VAD: listening for voice...');
 
-    checkSilence();
+      startedListeningAtRef.current = Date.now();
+      lastVoiceAtRef.current = Date.now();
+      hasDetectedVoiceRef.current = false;
+
+      vadIntervalRef.current = setInterval(async () => {
+        if (isStoppingRef.current) {
+          return;
+        }
+
+        try {
+          const status = await recorder.getStatus();
+          if (!status.isRecording) {
+            clearVADMonitoring();
+            setIsVADListening(false);
+            return;
+          }
+
+          const rawVolume = status.metering ?? -100;
+          const now = Date.now();
+          const prevSmoothed = smoothedVolumeRef.current;
+          const smoothedVolume =
+            prevSmoothed == null
+              ? rawVolume
+              : prevSmoothed + (rawVolume - prevSmoothed) * METER_SMOOTHING_ALPHA;
+
+          smoothedVolumeRef.current = smoothedVolume;
+          console.log('Volume raw:', rawVolume, 'smoothed:', smoothedVolume);
+
+          if (status.metering === undefined && !hasWarnedMissingMeteringRef.current) {
+            hasWarnedMissingMeteringRef.current = true;
+            console.warn('Recorder metering is unavailable. VAD countdown is using fallback silence values.');
+          }
+
+          const speakingNow = hasDetectedVoiceRef.current
+            ? smoothedVolume > VAD_KEEP_THRESHOLD
+            : smoothedVolume > VAD_START_THRESHOLD;
+
+          if (speakingNow) {
+            lastVoiceAtRef.current = now;
+            hasDetectedVoiceRef.current = true;
+            console.log(
+              `VAD: voice detected (${Math.round(smoothedVolume)} dB, keep threshold ${VAD_KEEP_THRESHOLD})`
+            );
+            return;
+          }
+
+          if (!hasDetectedVoiceRef.current) {
+            const remainingMs = Math.max(0, NO_VOICE_TIMEOUT_MS - (now - startedListeningAtRef.current));
+            console.log(
+              `VAD: no voice yet (>${VAD_START_THRESHOLD} dB). Auto stop in ${(remainingMs / 1000).toFixed(1)}s`
+            );
+
+            if (remainingMs === 0) {
+              console.log('No voice detected in time. Stopping...');
+              await stopRecording('No voice detected');
+            }
+            return;
+          }
+
+          const remainingMs = Math.max(0, POST_VOICE_SILENCE_MS - (now - lastVoiceAtRef.current));
+          console.log(
+            `VAD: silence detected (<${VAD_KEEP_THRESHOLD} dB). Auto stop in ${(remainingMs / 1000).toFixed(1)}s`
+          );
+
+          if (remainingMs === 0) {
+            console.log('Silence limit reached. Stopping...');
+            await stopRecording();
+          }
+        } catch (err) {
+          console.error('VAD monitoring failed', err);
+          if (!isStoppingRef.current) {
+            await stopRecording();
+          }
+        }
+      }, 150);
+
     } catch (err) {
-      console.error('Failed to start recording', err);
-      Alert.alert('Error', 'Failed to start recording.');
+      clearVADMonitoring();
+      setIsVADListening(false);
+      console.error('VAD start failed', err);
     }
   };
 
   // 🛑 Stop recording
-  const stopRecording = async () => {
+  const stopRecording = async (reason = 'Stopped manually') => {
+    if (isStoppingRef.current) {
+      return;
+    }
+
+    isStoppingRef.current = true;
+    setIsVADListening(false);
+    console.log('VAD stop reason:', reason);
+    clearVADMonitoring();
+
     try {
-      console.log('Stopping recording...');
-      if (silenceTimer) clearTimeout(silenceTimer);
-      await recorder.stop();
-
-      // ⏳ Wait a moment for the file to finalize
-      await new Promise((res) => setTimeout(res, 500));
-
-      const status = await recorder.getStatus();
-      console.log('Recording stopped, status:', status);
-
-      const uri = status.url || status.uri;
-      console.log('Raw URI:', uri);
-      if (!uri) {
-        Alert.alert('Error', 'No recording URI found.');
+      const currentStatus = await recorder.getStatus();
+      if (!currentStatus.isRecording) {
         return;
       }
 
-      // ✅ Ensure "file://" prefix for FileSystem
-      const fileUri = uri.startsWith('file://') ? uri : `file://${uri}`;
-      console.log('Normalized URI:', fileUri);
+      await recorder.stop();
+      const stoppedStatus = await recorder.getStatus();
+      const uri = stoppedStatus.url || stoppedStatus.uri;
 
-      await sendToAssemblyAI(fileUri);
+      if (uri) {
+        const fileUri = uri.startsWith('file://') ? uri : `file://${uri}`;
+        await sendToAssemblyAI(fileUri);
+      } else {
+        console.warn('Recording stopped without a file URI.');
+      }
     } catch (err) {
-      console.error('Failed to stop recording', err);
-      Alert.alert('Error', 'Failed to stop recording.');
+      console.error('Stop failed', err);
+    } finally {
+      isStoppingRef.current = false;
     }
   };
 
@@ -191,10 +293,11 @@ export default function useSpeechToText() {
 
 
   return {
-    startRecording,
+    startVAD,        // ✅ Exported
     stopRecording,
     transcript,
     loading,
     isRecording: recorderState.isRecording,
+    isVADListening,  // ✅ Exported
   };
 }
