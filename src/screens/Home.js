@@ -27,7 +27,7 @@ import Constants from "expo-constants";
 import useGloveModel from '../components/Model';
 import { useTextToSpeech } from '../components/useTextToSpeech';
 import useSpeechToText from '../components/useSpeechToText'; 
-import { useBluetooth} from '../components/useBluetooth'; 
+// [BT_CONNECT] import { useBluetooth} from '../components/useBluetooth'; 
 import { Buffer } from "buffer";
 
 const { width } = Dimensions.get("window");
@@ -37,6 +37,7 @@ const BOTTOM_TAB_HEIGHT = 60;
 
 export default function Home() {
 
+  /* [BT_CONNECT] - Uncomment to restore Bluetooth connection
   const {
     isConnected,
     selectedDevice,
@@ -47,6 +48,16 @@ export default function Home() {
     connectToDevice,
     disconnect,
   } = useBluetooth();
+  */
+  // [BT_CONNECT] Stub values for UI development
+  const isConnected = true;
+  const selectedDevice = null;
+  const isScanning = false;
+  const devices = [];
+  const gloveData = null;
+  const scanDevices = () => {};
+  const connectToDevice = () => {};
+  const disconnect = () => {};
 
   const {
     startRecording,
@@ -62,6 +73,7 @@ export default function Home() {
   const [showBluetoothModal, setShowBluetoothModal] = useState(false);
   const [showDeviceMenu, setShowDeviceMenu] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [isFlipped, setIsFlipped] = useState(false);
 
   const { speak, stop, isSpeaking } = useTextToSpeech();
   const { prediction, loading: modelLoading, modelReady } = useGloveModel(gloveData);
@@ -120,6 +132,7 @@ export default function Home() {
     };
   }, []);
 
+  /* [BT_CONNECT] - Uncomment to restore Bluetooth handlers
   const handleScanDevices = async () => {
     const canScan = await scanDevices();
     if (canScan) {
@@ -134,10 +147,15 @@ export default function Home() {
     disconnect();
     setShowDeviceMenu(false);
   };
-  
   const handleCloseModal = () => {
     setShowBluetoothModal(false);
   };
+  */
+  // [BT_CONNECT] Stub handlers for UI development
+  const handleScanDevices = () => {};
+  const handleConnectToDevice = () => {};
+  const handleDisconnect = () => { setShowDeviceMenu(false); };
+  const handleCloseModal = () => { setShowBluetoothModal(false); };
 
   return (
     <>
@@ -273,11 +291,25 @@ export default function Home() {
                         </View>
                       </View>
 
-                      {/* Ellipsis menu trigger */}
-                      <View style={{ position: 'relative' }}>
+                      {/* Ellipsis menu and Rotation trigger container */}
+                      <View style={{ position: 'relative', flexDirection: 'row', alignItems: 'center' }}>
+                        
+                        {/* Rotation Toggle */}
+                        <TouchableOpacity 
+                          onPress={() => setIsFlipped(!isFlipped)}
+                          style={{ marginRight: 15 }} // Provides spacing between the two icons
+                        >
+                          <MaterialIcons 
+                            name={isFlipped ? "screen-rotation" : "stay-primary-portrait"} 
+                            size={24} 
+                            color="#E53935" 
+                          />
+                        </TouchableOpacity>
+                        
+                        {/* Ellipsis Menu */}
                         <TouchableOpacity onPress={() => setShowDeviceMenu(!showDeviceMenu)}>
                           <Ionicons name="ellipsis-vertical" size={22} color="#333" />
-                        </TouchableOpacity>
+                        </TouchableOpacity>                      
 
                         {showDeviceMenu && (
                           <View style={styles.dropdownMenu}>
@@ -304,12 +336,11 @@ export default function Home() {
                             )}
                           </View>
                         )}
-
                       </View>
                     </View>
 
                     {/* Translation Card */}
-                    <View style={[styles.translationCard, { flex: 4 }]}>
+                    <View style={[styles.translationCard, { flex: 4 }, isFlipped && { transform: [{ rotate: '180deg' }] }]}>
                       <View style={styles.translationTextContainer}>
                         <Text style={styles.translationText}>FSL to Speech</Text>
                         <Text style={styles.translationPrompt}>
@@ -319,21 +350,37 @@ export default function Home() {
                       <TouchableOpacity
                         style={styles.translationPlayButton}
                         onPress={() => {
+                          if (isRecording) {
+                            Alert.alert('Microphone Active', 'Please wait for the other person to finish speaking.');
+                            return;
+                          }
                           if (prediction && !modelLoading) {
                             speak(prediction);
                           } else {
                             Alert.alert('Nothing to speak', 'No translation available yet.');
                           }
                         }}
-                        disabled={isSpeaking}
+                        // Disable the button entirely if the phone is currently talking OR listening
+                        disabled={isSpeaking || isRecording} 
                       >
-                        <Ionicons name="play" size={32} color="#E53935" />
+                        <Ionicons name="play" size={32} color={isRecording ? "#ccc" : "#E53935"} />
                       </TouchableOpacity>
                     </View>
 
 
                     {/* Speech to Text Card */}
-                    <View style={[styles.speechCard, { flex: 4 }]}>
+                    <TouchableOpacity 
+                      activeOpacity={0.7}
+                      onPress={() => {
+                        if (isSpeaking) {
+                          Alert.alert('Translating', 'Please wait until the translation finishes speaking.');
+                          return;
+                        }
+                        isRecording ? stopRecording() : startRecording();
+                      }}
+                      disabled={loading || isSpeaking}
+                      style={[styles.speechCard, { flex: 4 }]}
+                    >
                       <View style={styles.speechTextContainer}>
                         <Text style={styles.speechTitle}>Speech to Text</Text>
 
@@ -350,7 +397,9 @@ export default function Home() {
                           <Text style={styles.speechPrompt}>
                             {loading
                               ? 'Transcribing...'
-                              : transcript || displayedText || 'Press the button to start voice recognition'}
+                              : isRecording 
+                                ? 'Listening...' 
+                                : transcript || 'Waiting for speech'}
                           </Text>
                         )}
                       </View>
@@ -379,8 +428,15 @@ export default function Home() {
                             ]}
                           >
                             <TouchableOpacity
-                              onPress={isRecording ? stopRecording : startRecording}
-                              disabled={loading}
+                              onPress={() => {
+                                if (isSpeaking) {
+                                  Alert.alert('Translating', 'Please wait until the translation finishes speaking.');
+                                  return;
+                                }
+                                isRecording ? stopRecording() : startRecording();
+                              }}
+                              // Disable the mic if it's currently processing audio OR if the phone is speaking
+                              disabled={loading || isSpeaking} 
                             >
                               <Ionicons
                                 name={isRecording ? 'stop' : 'mic'}
@@ -391,11 +447,8 @@ export default function Home() {
                           </Animated.View>
                         )}
                       </View>
-                    </View>
-
-
-                  </View>
-                
+                    </TouchableOpacity>
+                  </View>              
                 </> 
               )}
 
@@ -669,7 +722,7 @@ const styles = StyleSheet.create({
   },
   translationPrompt: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: 24,
     marginBottom: 18,
     textAlign: 'left',
     fontStyle: 'italic',
@@ -710,7 +763,7 @@ const styles = StyleSheet.create({
   },
   speechPrompt: {
     color: '#888',
-    fontSize: 18,
+    fontSize: 24,
     marginBottom: 18,
   },
   micButtonAnimated: {
@@ -724,7 +777,7 @@ const styles = StyleSheet.create({
   },
 
   textInput: {
-    fontSize: 18,
+    fontSize: 24,
     borderBottomWidth: 1,
     borderColor: "#ddd",
     color: "#333",
