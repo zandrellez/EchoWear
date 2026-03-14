@@ -1,104 +1,67 @@
 import React, { useState, useEffect, useRef } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Animated,
-  ActivityIndicator,
-  Modal,
-  Image,
-  TextInput,
-  Alert,
-  PermissionsAndroid,
-  Platform,
-  Dimensions,
-  StatusBar,
-  FlatList,
-  Keyboard,
-  TouchableWithoutFeedback,
-  KeyboardAvoidingView,
-  Easing
+import { 
+  View, Text, StyleSheet, TouchableOpacity, Animated, ActivityIndicator, Modal, Image, TextInput, Alert, PermissionsAndroid, Platform, Dimensions, StatusBar, FlatList, Keyboard, TouchableWithoutFeedback, KeyboardAvoidingView, Easing
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import Constants from "expo-constants";
-
 import useGloveModel from '../components/Model';
 import { useTextToSpeech } from '../components/useTextToSpeech';
 import useSpeechToText from '../components/useSpeechToText'; 
 import { useBluetooth } from '../components/useBluetooth'; 
-import { Buffer } from "buffer";
 
-const { width } = Dimensions.get("window");
 const STATUSBAR_HEIGHT = Platform.OS === "ios" ? Constants.statusBarHeight : StatusBar.currentHeight || 0;
-const HEADER_HEIGHT = 60;
 const BOTTOM_TAB_HEIGHT = 60;
 
 export default function Home() {
+  const [displayedText, setDisplayedText] = useState('');
 
   const {
-    isConnected,
-    selectedDevice,
-    isScanning,
-    devices,
-    gloveData,
-    scanDevices,
-    connectToDevice,
-    disconnect,
+    isConnected, isScanning, devices, gloveData,
+    scanDevices, connectToDevice, disconnect,
   } = useBluetooth();
 
   const {
-    startVAD,        // ✅ Now available
-    stopRecording,
-    transcript,
-    loading,
-    isRecording,
-    isVADListening,   // ✅ Use this for UI states
+    startVAD, stopRecording,
+    transcript, loading, isRecording, isVADListening, 
   } = useSpeechToText();
-
-  const insets = useSafeAreaInsets();
 
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [showBluetoothModal, setShowBluetoothModal] = useState(false);
   const [showDeviceMenu, setShowDeviceMenu] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isFlipped, setIsFlipped] = useState(false);
-  const [isBypassMode, setIsBypassMode] = useState(false);
+  const [isTyping, setIsTyping] = useState(false); 
+
+  const [manualText, setManualText] = useState(''); 
 
   const { speak, stop, isSpeaking } = useTextToSpeech();
   const { prediction, loading: modelLoading, modelReady } = useGloveModel(gloveData);
 
-  const [isTyping, setIsTyping] = useState(false); 
-  const [manualText, setManualText] = useState(''); 
-  const [displayedText, setDisplayedText] = useState('');
-  const isUiConnected = isConnected || isBypassMode;
-
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-  if (isRecording) {
-    const pulse = Animated.loop(
-      Animated.sequence([
-        Animated.timing(scaleAnim, {
-          toValue: 1.15,
-          duration: 500,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(scaleAnim, {
-          toValue: 1,
-          duration: 500,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    pulse.start();
-    return () => pulse.stop();
-  } else {
-    scaleAnim.setValue(1);
-  }
+    if (isRecording) {
+      const pulse = Animated.loop(
+        Animated.sequence([
+          Animated.timing(scaleAnim, {
+            toValue: 1.15,
+            duration: 500,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(scaleAnim, {
+            toValue: 1,
+            duration: 500,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      pulse.start();
+      return () => pulse.stop();
+    } else {
+      scaleAnim.setValue(1);
+    }
   }, [isRecording]);
 
   const handleTextToggle = () => {
@@ -130,32 +93,26 @@ export default function Home() {
       setShowBluetoothModal(true);
     }
   };
+
   const handleConnectToDevice = (device) => {
     connectToDevice(device);
     setShowBluetoothModal(false);
   };
+
   const handleDisconnect = () => {
     disconnect();
     setShowDeviceMenu(false);
   };
+
   const handleCloseModal = () => {
     setShowBluetoothModal(false);
-  };
-
-  const handleBypassToggle = () => {
-    setIsBypassMode((prev) => !prev);
-    setShowBluetoothModal(false);
-    setShowDeviceMenu(false);
   };
 
   return (
     <>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
-      <KeyboardAvoidingView
-        style={styles.safeArea}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-      >
+      <KeyboardAvoidingView style={styles.safeArea} behavior={Platform.OS === "ios" ? "padding" : "height"}>
         <TouchableWithoutFeedback onPress={dismissKeyboard} accessible={false}>
           <View style={{ flex: 1 }}>
 
@@ -172,7 +129,6 @@ export default function Home() {
             <Modal visible={showBluetoothModal} transparent animationType="fade" onRequestClose={handleCloseModal}>
               <View style={styles.modalOverlay}>
                 <View style={styles.modalCard}>
-                  {/* Header */}
                   <View style={styles.modalHeader}>
                     <Text style={styles.modalTitle}>Nearby Devices</Text>
                     {isScanning && <ActivityIndicator size="small" color="#E53935" style={{ marginLeft: 8 }} />}
@@ -210,6 +166,7 @@ export default function Home() {
                         <Text style={styles.retryButtonText}>Scan Again</Text>
                       </TouchableOpacity>
                     )}
+
                     <TouchableOpacity style={styles.closeButton} onPress={handleCloseModal}>
                       <Text style={styles.closeButtonText}>Close</Text>
                     </TouchableOpacity>
@@ -218,15 +175,13 @@ export default function Home() {
               </View>
             </Modal>
 
-
             {/* Main content */}
             <View style={{flex: 1,}}>
-              {!isUiConnected ? (
+              {!isConnected ? (
                 <>
                   <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
-                    <TouchableOpacity
+                    <TouchableOpacity onPress={handleScanDevices}
                       style={[styles.connectButton, isConnecting && styles.connectingButton]}
-                      onPress={handleScanDevices}
                       disabled={isConnecting}
                     >
                       {isConnecting ? (
@@ -235,13 +190,6 @@ export default function Home() {
                       <Text style={styles.connectButtonText}>
                         {isConnecting ? 'Connecting...' : 'Connect to device'}
                       </Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={styles.bypassButton}
-                      onPress={handleBypassToggle}
-                    >
-                      <Text style={styles.bypassButtonText}>Bypass Bluetooth (UI Mode)</Text>
                     </TouchableOpacity>
 
                     <View style={[styles.messageCard, { flex: 4 }]}>
@@ -264,13 +212,10 @@ export default function Home() {
                 </>
               ) : (
                 <>
-
                   <View style={{ flex: 1 }}>
-
                     {/* Device Card */}
                     <View style={[styles.deviceCard, { flex: 1 }]}>
-                      <Image
-                        source={require('../../assets/glove.png')}
+                      <Image source={require('../../assets/glove.png')}
                         style={styles.deviceImage}
                       />
                       <View style={{ flex: 1 }}>
@@ -283,9 +228,8 @@ export default function Home() {
                           <Ionicons name="battery-half" size={18} color="#333" />
                           <Text style={styles.deviceBattery}>75%</Text>
                           <Text style={[styles.deviceConnected, { color: isConnected ? '#4CAF50' : '#F57C00' }]}>
-  {isConnected ? 'Connected' : 'UI Bypass'}
+                            {isConnected ? 'Connected' : 'Disconnected'}
                           </Text>
-
                         </View>
                       </View>
 
@@ -293,15 +237,10 @@ export default function Home() {
                       <View style={{ position: 'relative', flexDirection: 'row', alignItems: 'center' }}>
                         
                         {/* Rotation Toggle */}
-                        <TouchableOpacity 
-                          onPress={() => setIsFlipped(!isFlipped)}
-                          style={{ marginRight: 15 }} // Provides spacing between the two icons
+                        <TouchableOpacity onPress={() => setIsFlipped(!isFlipped)}
+                          style={{ marginRight: 15 }} 
                         >
-                          <MaterialIcons 
-                            name={isFlipped ? "screen-rotation" : "stay-primary-portrait"} 
-                            size={24} 
-                            color="#E53935" 
-                          />
+                          <MaterialIcons name={isFlipped ? "screen-rotation" : "stay-primary-portrait"}  size={24} color="#E53935"/>
                         </TouchableOpacity>
                         
                         {/* Ellipsis Menu */}
@@ -326,21 +265,13 @@ export default function Home() {
                                 style={styles.dropdownItem}
                                 onPress={() => {
                                   setShowDeviceMenu(false);
-                                  handleScanDevices(); // reconnect if disconnected
+                                  handleScanDevices(); 
                                 }}
                               >
                                 <Text style={styles.dropdownText}>Reconnect</Text>
                               </TouchableOpacity>
                             )}
 
-                            <TouchableOpacity
-                              style={styles.dropdownItem}
-                              onPress={handleBypassToggle}
-                            >
-                              <Text style={styles.dropdownText}>
-                                {isBypassMode ? 'Disable UI Bypass' : 'Enable UI Bypass'}
-                              </Text>
-                            </TouchableOpacity>
                           </View>
                         )}
                       </View>
@@ -552,19 +483,6 @@ const styles = StyleSheet.create({
     fontSize: 19,
     fontWeight: '600',
     marginLeft: 8,
-  },
-  bypassButton: {
-    borderWidth: 1,
-    borderColor: '#E53935',
-    borderRadius: 8,
-    paddingVertical: 12,
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  bypassButtonText: {
-    color: '#E53935',
-    fontSize: 15,
-    fontWeight: '600',
   },
   modalOverlay: {
     flex: 1,
