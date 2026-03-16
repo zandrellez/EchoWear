@@ -5,8 +5,8 @@ import { Alert, PermissionsAndroid, Platform } from 'react-native';
 import { Buffer } from 'buffer';
 
 const manager = new BleManager();
-const SERVICE_UUID = '4fafc201-1fb5-459e-8fcc-c5c9c331914b';
-const CHARACTERISTIC_UUID = 'beb5483e-36e1-4688-b7f5-ea07361b26a8';
+const SERVICE_UUID = '19b10000-e8f2-537e-4f6c-d104768a1214'; // Lowercase
+const CHARACTERISTIC_UUID = 'beb5483e-36e1-4688-b7f5-ea07361b26a8'; // Lowercase
 
 export function useBluetooth(timesteps = 60, features = 11, onData) {
   const [isConnected, setIsConnected] = useState(false);
@@ -75,8 +75,13 @@ export function useBluetooth(timesteps = 60, features = 11, onData) {
 
       if (!device) return;
 
-      if (device.serviceUUIDs?.includes(SERVICE_UUID)) {
-        console.log(`📡 Found device advertising ${SERVICE_UUID}: ${device.name || 'Unnamed'} (${device.id})`);
+      // Safely check for the UUID regardless of casing
+      const hasTargetService = device.serviceUUIDs?.some(
+        (uuid) => uuid.toLowerCase() === SERVICE_UUID.toLowerCase()
+      );
+
+      if (hasTargetService) {
+        console.log(`📡 Found device: ${device.name || 'Unnamed'} (${device.id})`);
 
         setDevices((prev) =>
           prev.some((d) => d.id === device.id) ? prev : [...prev, device]
