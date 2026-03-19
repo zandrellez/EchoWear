@@ -11,6 +11,9 @@ LogBox.ignoreLogs(["THREE.GLTFLoader: Couldn't load texture"]);
 // --- LAYOUT CONFIG (2 COLUMNS) ---
 const CONTAINER_PADDING = 16;
 const CARD_MARGIN = 8;
+const STORY_ITEM_WIDTH = 70;
+const STORY_ITEM_MARGIN_RIGHT = 16;
+const STORY_ITEM_TOTAL_WIDTH = STORY_ITEM_WIDTH + STORY_ITEM_MARGIN_RIGHT;
 // Calculation: (Screen Width - Container Padding) / 2 columns - Card Margins
 const CARD_WIDTH = (width - (CONTAINER_PADDING * 2)) / 2 - (CARD_MARGIN * 2);
 
@@ -262,6 +265,7 @@ export default function Library() {
   const [selectedCategory, setSelectedCategory] = useState("Alphabet");
   const [selectedWordIndex, setSelectedWordIndex] = useState(null);
   const wasInFocusRef = useRef(false);
+  const categoryListRef = useRef(null);
 
   const currentWords = words[selectedCategory] || [];
   const selectedWord = selectedWordIndex !== null ? currentWords[selectedWordIndex] : null;
@@ -332,8 +336,27 @@ export default function Library() {
         x: index * width,
         animated: false,
       });
+
+      categoryListRef.current?.scrollToIndex({
+        index,
+        animated: false,
+        viewPosition: 0.5,
+      });
     });
   }, [selectedWordIndex]);
+
+  useEffect(() => {
+    const index = categories.findIndex((c) => c.key === selectedCategory);
+    if (index < 0) return;
+
+    requestAnimationFrame(() => {
+      categoryListRef.current?.scrollToIndex({
+        index,
+        animated: true,
+        viewPosition: 0.5,
+      });
+    });
+  }, [selectedCategory]);
 
   const goNext = () => {
     if (selectedWordIndex < currentWords.length - 1) setSelectedWordIndex(selectedWordIndex + 1);
@@ -373,11 +396,23 @@ export default function Library() {
       {/* Categories: "Story Style" Circles */}
       <View style={styles.categoryContainer}>
         <FlatList
+          ref={categoryListRef}
           data={categories}
           horizontal
           scrollEnabled={true}
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={{ paddingHorizontal: 10 }}
+          getItemLayout={(_, index) => ({
+            length: STORY_ITEM_TOTAL_WIDTH,
+            offset: STORY_ITEM_TOTAL_WIDTH * index,
+            index,
+          })}
+          onScrollToIndexFailed={({ index }) => {
+            categoryListRef.current?.scrollToOffset({
+              offset: STORY_ITEM_TOTAL_WIDTH * index,
+              animated: true,
+            });
+          }}
           renderItem={({ item }) => {
             const isActive = selectedCategory === item.key;
             return (
