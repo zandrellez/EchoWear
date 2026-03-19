@@ -1,19 +1,13 @@
 import { useEffect, useState, useRef } from 'react';
 import { Alert } from 'react-native';
-import {
-  useAudioRecorder,
-  useAudioRecorderState,
-  AudioModule,
-  RecordingPresets,
-  setAudioModeAsync,
-} from 'expo-audio';
+import { useAudioRecorder, useAudioRecorderState, AudioModule, RecordingPresets, setAudioModeAsync, } from 'expo-audio';
 import * as FileSystem from 'expo-file-system/legacy';
 
 const ASSEMBLY_API_KEY = '75181ba65a4948499efb9e49ec310f4d';
 const VAD_START_THRESHOLD = -30;
 const VAD_KEEP_THRESHOLD = -33;
 const NO_VOICE_TIMEOUT_MS = 5000;
-const POST_VOICE_SILENCE_MS = 2000;
+const POST_VOICE_SILENCE_MS = 1000;
 const VAD_POLL_INTERVAL_MS = 150;
 const METER_SMOOTHING_ALPHA = 0.2;
 

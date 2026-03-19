@@ -13,12 +13,17 @@ const STATUSBAR_HEIGHT = Platform.OS === "ios" ? Constants.statusBarHeight : Sta
 const BOTTOM_TAB_HEIGHT = 60;
 
 export default function Home() {
+  
   const [displayedText, setDisplayedText] = useState('');
 
   const {
     isConnected, isScanning, devices, gloveData,
     scanDevices, connectToDevice, disconnect,
   } = useBluetooth();
+
+  // to be deleted
+  const [bypassConnection, setBypassConnection] = useState(false);
+  const showMainContent = isConnected || bypassConnection;
 
   const {
     startVAD, stopRecording,
@@ -177,7 +182,8 @@ export default function Home() {
 
             {/* Main content */}
             <View style={{flex: 1,}}>
-              {!isConnected ? (
+              {!showMainContent ? (
+              // {!isConnected ? (
                 <>
                   <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
                     <TouchableOpacity onPress={handleScanDevices}
@@ -189,6 +195,15 @@ export default function Home() {
                       ) : null}
                       <Text style={styles.connectButtonText}>
                         {isConnecting ? 'Connecting...' : 'Connect to device'}
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity 
+                      onPress={() => setBypassConnection(true)}
+                      style={{ alignSelf: 'center', marginBottom: 20 }}
+                    >
+                      <Text style={{ color: '#888', textDecorationLine: 'underline' }}>
+                        Bypass connection (Demo Mode)
                       </Text>
                     </TouchableOpacity>
 
@@ -220,15 +235,24 @@ export default function Home() {
                       />
                       <View style={{ flex: 1 }}>
                         <Text style={styles.deviceTitle}>
-                          <Text style={{ fontWeight: 'bold' }}>EchoWear Glove</Text>{' '}
+                          <Text style={{ fontWeight: 'bold' }}>
+                            {bypassConnection ? "Demo Mode" : "EchoWear Glove"}
+                          </Text>{' '}
                           <Text style={{ fontWeight: 'bold', color: '#E53935' }}></Text>
                         </Text>
 
                         <View style={styles.deviceStatusRow}>
                           <Ionicons name="battery-half" size={18} color="#333" />
-                          <Text style={styles.deviceBattery}>75%</Text>
+                          <Text style={styles.deviceBattery}>
+                            {bypassConnection ? "N/A" : "75%"}
+                          </Text>
+                          {/* to be deleted
                           <Text style={[styles.deviceConnected, { color: isConnected ? '#4CAF50' : '#F57C00' }]}>
                             {isConnected ? 'Connected' : 'Disconnected'}
+                          </Text>
+                          */}
+                          <Text style={[styles.deviceConnected, { color: showMainContent ? '#4CAF50' : '#F57C00' }]}>
+                            {bypassConnection ? 'Bypassed' : 'Connected'}
                           </Text>
                         </View>
                       </View>

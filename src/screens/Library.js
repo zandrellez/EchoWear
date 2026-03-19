@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, FlatList, Image, BackHandler, Dimensions, LogBox } from "react-native";
+import React, { useState, useEffect, useRef } from "react";
+import { View, Text, TouchableOpacity, StyleSheet, FlatList, Image, BackHandler, Dimensions, LogBox, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Asset } from "expo-asset";
 import WordFocus from "../components/WordFocus"; 
@@ -269,6 +269,30 @@ export default function Library() {
   // Get Icon for Fallback
   const currentCategoryIcon = categories.find(c => c.key === selectedCategory)?.icon || "shapes-outline";
 
+  // --- SWIPE GESTURE & SCROLL HANDLER ---
+  const scrollViewRef = useRef(null);
+  const currentCategoryIndex = categories.findIndex(c => c.key === selectedCategory);
+
+  const handleScroll = (event) => {
+    if (selectedWordIndex !== null) return; // Don't scroll when in focus mode
+    
+    const contentOffsetX = event.nativeEvent.contentOffset.x;
+    const newIndex = Math.round(contentOffsetX / width);
+    
+    if (newIndex !== currentCategoryIndex && newIndex >= 0 && newIndex < categories.length) {
+      setSelectedCategory(categories[newIndex].key);
+    }
+  };
+
+  const handleCategoryPress = (categoryKey) => {
+    setSelectedCategory(categoryKey);
+    const index = categories.findIndex(c => c.key === categoryKey);
+    scrollViewRef.current?.scrollTo({
+      x: index * width,
+      animated: true,
+    });
+  };
+
   useEffect(() => {
     // Preload Logic
     const assetsToLoad = Object.values(categoryAssets).filter(Boolean);
@@ -330,6 +354,7 @@ export default function Library() {
         <FlatList
           data={categories}
           horizontal
+          scrollEnabled={true}
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={{ paddingHorizontal: 10 }}
           renderItem={({ item }) => {
@@ -337,7 +362,7 @@ export default function Library() {
             return (
               <TouchableOpacity 
                 style={styles.storyItem} 
-                onPress={() => setSelectedCategory(item.key)}
+                onPress={() => handleCategoryPress(item.key)}
                 activeOpacity={0.7}
               >
                 {/* Circle Container */}
@@ -359,53 +384,67 @@ export default function Library() {
         />
       </View>
 
-      {/* Word Grid - 2 Columns */}
-      <FlatList 
-        data={currentWords}
-        keyExtractor={(item) => item}
-        numColumns={2} // <--- CHANGED TO 2
-        contentContainerStyle={{ padding: CONTAINER_PADDING }}
-        ListEmptyComponent={
-            <View style={{padding: 20, alignItems: 'center'}}>
-                <Text style={{color: '#999'}}>No words in this category yet.</Text>
-            </View>
-        }
-        renderItem={({ item, index }) => {
-          // 1. Check if a thumbnail exists for this word/letter
-          const thumbnailSource = modelThumbnails[item];
-
+      {/* Horizontal Scrollable Word Grid - One "page" per category */}
+      <ScrollView
+        ref={scrollViewRef}
+        horizontal
+        pagingEnabled
+        nestedScrollEnabled={true}
+        showsHorizontalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onScroll={handleScroll}
+        style={styles.scrollContainer}
+      >
+        {categories.map((category) => {
+          const categoryWords = words[category.key] || [];
           return (
-            <TouchableOpacity 
-               style={styles.wordCard} 
-               onPress={() => setSelectedWordIndex(index)}
-            >
-              <View style={styles.cardInner}>
-                 {thumbnailSource ? (
-                    // 2. IF THUMBNAIL EXISTS: Show the Image
-                    <Image 
-                      source={thumbnailSource} 
-                      style={styles.thumbnailImage} 
-                      resizeMode="contain" 
-                    />
-                 ) : (
-                    // 3. FALLBACK: Show the old Icon/Letter circle
-                    <View style={styles.iconFallback}>
-                        {item.length < 5 ? (
-                            <Text style={styles.wordLetter}>{item.charAt(0)}</Text>
+            <View key={category.key} style={{ width, paddingHorizontal: CONTAINER_PADDING }}>
+              <FlatList
+                data={categoryWords}
+                keyExtractor={(item) => item}
+                numColumns={2}
+                scrollEnabled={true}
+                contentContainerStyle={{ paddingTop: CONTAINER_PADDING, paddingBottom: CONTAINER_PADDING }}
+                ListEmptyComponent={
+                  <View style={{ padding: 20, alignItems: 'center' }}>
+                    <Text style={{ color: '#999' }}>No words in this category yet.</Text>
+                  </View>
+                }
+                renderItem={({ item, index }) => {
+                  const thumbnailSource = modelThumbnails[item];
+                  return (
+                    <TouchableOpacity
+                      style={styles.wordCard}
+                      onPress={() => setSelectedWordIndex(index)}
+                    >
+                      <View style={styles.cardInner}>
+                        {thumbnailSource ? (
+                          <Image
+                            source={thumbnailSource}
+                            style={styles.thumbnailImage}
+                            resizeMode="contain"
+                          />
                         ) : (
-                            <Ionicons name={currentCategoryIcon} size={32} color="#E64C3C" />
+                          <View style={styles.iconFallback}>
+                            {item.length < 5 ? (
+                              <Text style={styles.wordLetter}>{item.charAt(0)}</Text>
+                            ) : (
+                              <Ionicons name={currentCategoryIcon} size={32} color="#E64C3C" />
+                            )}
+                          </View>
                         )}
-                    </View>
-                 )}
-              </View>
-              
-              <Text style={styles.wordLabel} numberOfLines={3}>
-                {item}
-              </Text>
-            </TouchableOpacity>
+                      </View>
+                      <Text style={styles.wordLabel} numberOfLines={3}>
+                        {item}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                }}
+              />
+            </View>
           );
-        }}
-      />
+        })}
+      </ScrollView>
     </View>
   );
 }
@@ -415,9 +454,12 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: 20, marginBottom: 10 },
   headerText: { fontSize: 28, fontWeight: "bold", color: "#333" },
   
-categoryContainer: { 
+  categoryContainer: { 
     height: 100, // Taller to fit circle + text
     marginBottom: 10 
+  },
+  scrollContainer: {
+    flex: 1,
   },
   storyItem: { 
     alignItems: 'center', 
