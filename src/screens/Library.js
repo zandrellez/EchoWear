@@ -261,6 +261,7 @@ const modelThumbnails = {
 export default function Library() {
   const [selectedCategory, setSelectedCategory] = useState("Alphabet");
   const [selectedWordIndex, setSelectedWordIndex] = useState(null);
+  const wasInFocusRef = useRef(false);
 
   const currentWords = words[selectedCategory] || [];
   const selectedWord = selectedWordIndex !== null ? currentWords[selectedWordIndex] : null;
@@ -312,6 +313,26 @@ export default function Library() {
     };
     const backHandler = BackHandler.addEventListener("hardwareBackPress", backAction);
     return () => backHandler.remove();
+  }, [selectedWordIndex]);
+
+  useEffect(() => {
+    if (selectedWordIndex !== null) {
+      wasInFocusRef.current = true;
+      return;
+    }
+
+    if (!wasInFocusRef.current) return;
+    wasInFocusRef.current = false;
+
+    const index = categories.findIndex((c) => c.key === selectedCategory);
+    if (index < 0) return;
+
+    requestAnimationFrame(() => {
+      scrollViewRef.current?.scrollTo({
+        x: index * width,
+        animated: false,
+      });
+    });
   }, [selectedWordIndex]);
 
   const goNext = () => {
