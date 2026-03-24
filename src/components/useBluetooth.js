@@ -5,10 +5,10 @@ import { Alert, PermissionsAndroid, Platform } from 'react-native';
 import { Buffer } from 'buffer';
 
 const manager = new BleManager();
-const SERVICE_UUID = '19b10000-e8f2-537e-4f6c-d104768a1214'; // Lowercase
-const CHARACTERISTIC_UUID = 'beb5483e-36e1-4688-b7f5-ea07361b26a8'; // Lowercase
+const SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e'; // Lowercase
+const CHARACTERISTIC_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e'; // Lowercase
 
-export function useBluetooth(timesteps = 60, features = 11, onData) {
+export function useBluetooth(timesteps = 30, features = 11, onData) {
   const [isConnected, setIsConnected] = useState(false);
   const [selectedDevice, setSelectedDevice] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
@@ -16,6 +16,8 @@ export function useBluetooth(timesteps = 60, features = 11, onData) {
   const [gloveData, setGloveData] = useState(null);
 
   const bufferRef = useRef([]);
+  const connectedDeviceIdRef = useRef(null);
+  const frameCounterRef = useRef(0);
 
   async function requestBluetoothPermissions() {
     if (Platform.OS === 'android') {
@@ -49,43 +51,40 @@ export function useBluetooth(timesteps = 60, features = 11, onData) {
 
     const btState = await manager.state();
     if (btState !== State.PoweredOn) {
-      Alert.alert('Bluetooth is Off', 'Please enable Bluetooth to scan for devices.', [{ text: 'OK' }]);
+      Alert.alert('Bluetooth is Off', 'Please enable Bluetooth to scan.', [{ text: 'OK' }]);
       return false;
     }
 
     setIsScanning(true);
     setDevices([]);
 
-    console.log('🔍 Scanning for devices advertising service:', SERVICE_UUID);
+    // Ensure UUID is explicitly lowercase for the native bridge
+    const targetUUID = SERVICE_UUID.toLowerCase();
+    console.log('🔍 Scanning for devices advertising service:', targetUUID);
 
+    // Resilience: Keep track of the timeout so we can clear it gracefully
     const scanTimeout = setTimeout(() => {
       console.log('⏰ Scan timed out.');
       manager.stopDeviceScan();
       setIsScanning(false);
     }, 5000);
 
-    manager.startDeviceScan([SERVICE_UUID], null, (error, device) => {
+    manager.startDeviceScan([targetUUID], { allowDuplicates: false }, (error, device) => {
       if (error) {
         console.log('❌ Scan error:', error);
         clearTimeout(scanTimeout);
-        manager.stopDeviceScan();
         setIsScanning(false);
         return;
       }
 
-      if (!device) return;
-
-      // Safely check for the UUID regardless of casing
-      const hasTargetService = device.serviceUUIDs?.some(
-        (uuid) => uuid.toLowerCase() === SERVICE_UUID.toLowerCase()
-      );
-
-      if (hasTargetService) {
+      if (device) {
         console.log(`📡 Found device: ${device.name || 'Unnamed'} (${device.id})`);
 
-        setDevices((prev) =>
-          prev.some((d) => d.id === device.id) ? prev : [...prev, device]
-        );
+        setDevices((prev) => {
+            // Prevent unnecessary state re-renders if the device is already in the list
+            if (prev.some((d) => d.id === device.id)) return prev;
+            return [...prev, device];
+        });
 
         clearTimeout(scanTimeout);
         manager.stopDeviceScan();
@@ -99,9 +98,20 @@ export function useBluetooth(timesteps = 60, features = 11, onData) {
   const connectToDevice = async (device) => {
     try {
       const connectedDevice = await manager.connectToDevice(device.id);
+      connectedDeviceIdRef.current = connectedDevice.id;
+
       await connectedDevice.discoverAllServicesAndCharacteristics();
       await connectedDevice.requestMTU(512);
       console.log('🔧 MTU requested: 512 bytes');
+
+      manager.onDeviceDisconnected(device.id, (error, disconnectedDevice) => {
+        console.log(`🔌 Device physically disconnected: ${disconnectedDevice.id}`);
+        setIsConnected(false);
+        setSelectedDevice(null);
+        connectedDeviceIdRef.current = null;
+        setGloveData('Waiting for data...');
+        bufferRef.current = [];
+      });
 
       connectedDevice.monitorCharacteristicForService(
         SERVICE_UUID,
@@ -114,58 +124,53 @@ export function useBluetooth(timesteps = 60, features = 11, onData) {
             const rawStr = Buffer.from(characteristic.value, 'base64').toString('utf8');
             let arr = rawStr.split(',').map(x => parseFloat(x.trim()));
 
-            // 1. Validate row matches the expected 11 features (5 flex + 6 MPU)
-            if (arr.length < features || arr.some(v => isNaN(v))) {
-              console.log('⚠️ Ignored invalid row:', arr);
+            if (arr.length < features || arr.some(v => !Number.isFinite(v))) {
+              console.warn('⚠️ Rejected corrupted BLE frame:', rawStr);
               return;
             }
 
-            // 2. APPLY NORMALIZATION (must match Colab training)
-            // Arduino now sends RAW flex values (0-100 range, same as training CSVs)
-            // Training used: flex → val/99 (global MinMax), MPU → (val+1)/2
             const normalizedRow = arr.slice(0, features).map((val, index) => {
               if (index < 5) {
-                // Flex: raw ADC values → divide by 100 to match training range
-                return Math.max(0, Math.min(1, val / 100));
+                // CRITICAL FIX: Arduino is already sending 0.0 to 1.0!
+                // Do NOT divide by 100 here anymore. Just pass it through.
+                return Math.max(0, Math.min(1, val)); 
               } else {
-                // MPU: -1..1 → 0..1
+                // MPU: -1..1 → 0..1 (Assuming training data was scaled this way)
                 return Math.max(0, Math.min(1, (val + 1) / 2));
               }
             });
 
-            // 3. Update the sliding window buffer
+            if (normalizedRow.some(v => !Number.isFinite(v))) return;
+
             bufferRef.current.push(normalizedRow);
+            if (bufferRef.current.length > timesteps) bufferRef.current.shift();
 
-            if (bufferRef.current.length > timesteps) {
-              bufferRef.current.shift();
-            }
+            if (bufferRef.current.length === timesteps) {              
+              // 🔴 CRITICAL FIX 1: Throttle UI updates to 4Hz (every 5th frame)
+              frameCounterRef.current += 1;
+              if (frameCounterRef.current % 5 !== 0) {
+                // console.log(`⏳ Skipped frame ${frameCounterRef.current} to prevent UI lag`);
+                return;
+              }
 
-            // 4. Once we have a full window (60 frames @ 10Hz = 6s), send to Model
-            console.log('Buffer:', bufferRef.current.length, '/', timesteps);
-            if (bufferRef.current.length >= timesteps) {
               const dataCopy = [...bufferRef.current];
 
-              // Flatten for TFLite (60 * 11 = 660 floats)
-              const flatInput = new Float32Array(timesteps * features);
+              // 🔴 CRITICAL FIX 2: Use a standard Array, NOT Float32Array here!
+              // This prevents React/Hermes from destroying the object structure.
+              const flatInput = new Array(timesteps * features);          
+              
               for (let i = 0; i < timesteps; i++) {
                 for (let j = 0; j < features; j++) {
                   flatInput[i * features + j] = dataCopy[i][j];
                 }
               }
 
-              console.log('📦 Processed 660 values (Normalized)');
-
-              // Defensive check: ensure flattened input contains only finite numbers
-              const hasInvalidFlat = Array.from(flatInput).some(v => !isFinite(v));
-              if (hasInvalidFlat) {
-                console.warn('❌ Flattened input contains invalid numbers (NaN/Inf). Sample:', Array.from(flatInput).slice(0, 20));
-                // still set to allow debugging in model, but avoid crashing
+              if (flatInput.some(v => !Number.isFinite(v) || v === null || v === undefined)) {
+                 console.error('❌ Critical Error: flatInput contains NaN! Aborting dispatch.');
+                 return;
               }
 
-              // Sanity log: confirm length
-              if (flatInput.length !== timesteps * features) {
-                console.warn('❌ Unexpected flattened length:', flatInput.length, 'expected', timesteps * features);
-              }
+              // console.log(`📡 [BLE] Throttle open. Sending Frame ${frameCounterRef.current}. Length: ${flatInput.length}`);
 
               setGloveData(flatInput);
               if (onData) onData(flatInput);
@@ -185,15 +190,9 @@ export function useBluetooth(timesteps = 60, features = 11, onData) {
 
   const disconnect = async () => {
     try {
-      if (selectedDevice) {
-        console.log('🔌 Disconnecting from device:', selectedDevice.name || selectedDevice.id);
-        await manager.cancelDeviceConnection(selectedDevice.id);
-
-        const isStillConnected = await manager.isDeviceConnected(selectedDevice.id);
-        if (isStillConnected) {
-          console.log('⚠️ Device still connected, forcing disconnect.');
-          await manager.cancelDeviceConnection(selectedDevice.id);
-        }
+      if (connectedDeviceIdRef.current) {
+        console.log('🔌 Manually disconnecting from device...');
+        await manager.cancelDeviceConnection(connectedDeviceIdRef.current);
       }
 
       setSelectedDevice(null);
@@ -208,7 +207,10 @@ export function useBluetooth(timesteps = 60, features = 11, onData) {
 
   useEffect(() => {
     return () => {
-      manager.destroy();
+      if (connectedDeviceIdRef.current) {
+        console.log('🧹 Cleanup: Severing active connection before unmount.');
+        manager.cancelDeviceConnection(connectedDeviceIdRef.current).catch(console.error);
+      }
     };
   }, []);
 
@@ -223,4 +225,3 @@ export function useBluetooth(timesteps = 60, features = 11, onData) {
     disconnect,
   };
 }
-

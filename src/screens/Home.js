@@ -40,7 +40,7 @@ export default function Home() {
   const [manualText, setManualText] = useState(''); 
 
   const { speak, stop, isSpeaking } = useTextToSpeech();
-  const { prediction, loading: modelLoading, modelReady } = useGloveModel(gloveData);
+  const { prediction, confidence, loading: modelLoading, modelReady } = useGloveModel(gloveData);
 
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
@@ -308,6 +308,12 @@ export default function Home() {
                         <Text style={styles.translationPrompt}>
                           {modelReady ? prediction : 'Loading model...'}
                         </Text>
+
+                        {modelReady && prediction !== '...' && prediction !== 'Loading model...' && (
+                          <Text style={styles.accuracyText}>
+                            Accuracy: {confidence}%
+                          </Text>
+                        )}
                       </View>
                       <TouchableOpacity
                         style={styles.translationPlayButton}
@@ -693,9 +699,16 @@ const styles = StyleSheet.create({
   translationPrompt: {
     color: '#fff',
     fontSize: 24,
-    marginBottom: 18,
+    marginBottom: 4,
     textAlign: 'left',
     fontStyle: 'italic',
+  },
+  accuracyText: {
+    color: '#fff',
+    fontSize: 14, // 👈 Smaller text as requested
+    opacity: 0.9,
+    fontWeight: '500',
+    marginBottom: 14,
   },
   translationPlayButton: {
     position: 'absolute',

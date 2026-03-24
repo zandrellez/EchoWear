@@ -1,102 +1,90 @@
 // ../components/Model.js
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { loadTensorflowModel } from 'react-native-fast-tflite';
 import labels from '../../assets/algorithm/labels.json';
 
-// labels.json is a flat ordered array:
-// ["0","1","2","3","4","5","6","7","8","9","A","B",...,"Z"]
-// labels[predIndex] directly returns the gesture name.
-
 export default function useGloveModel(gloveData) {
-  const [model, setModel] = useState(null);
+  const modelRef = useRef(null);
   const [prediction, setPrediction] = useState('Loading model...');
   const [modelReady, setModelReady] = useState(false);
 
-  // --- Load TFLite Model ---
+  const [confidence, setConfidence] = useState(0);
+
+  const predictionBuffer = useRef([]);
+  const BUFFER_SIZE = 5;
+  const isInferring = useRef(false);
+
   useEffect(() => {
     const loadModel = async () => {
       try {
         const loadedModel = await loadTensorflowModel(
-          require('../../assets/algorithm/echowear_model.tflite')
+          require('../../assets/echo_model.tflite')
         );
-        console.log('Model loaded. Classes:', labels.length);
-        setModel(loadedModel);
-        setPrediction('Model loaded, waiting for data...');
+        modelRef.current = loadedModel;
+        setPrediction('Ready...');
         setModelReady(true);
       } catch (err) {
-        console.error('Model load error:', err);
         setPrediction('Error loading model');
       }
     };
     loadModel();
   }, []);
 
-  // --- Run Inference on each new BLE data frame ---
   useEffect(() => {
-    if (!model || !gloveData) return;
+    if (!modelRef.current || !gloveData || gloveData.length === 0) return;
+    if (isInferring.current) return;
 
     const runPrediction = async () => {
+      if (!modelRef.current || !gloveData || gloveData.length === 0) return;
+      isInferring.current = true;
+      
       try {
-        // 1. Run inference - try array format, fallback to object format
-        let output;
-        try {
-          output = await model.run([gloveData]);
-        } catch (runErr) {
-          console.warn('Array format failed, trying object format:', runErr.message);
-          output = await model.run({ input: gloveData });
+        // 1. Force exactly 330 numbers into a rigid Float32Array
+        // This completely bypasses the buggy TFLite shape detector causing the crash
+        const inputTensor = new Float32Array(330);
+        
+        for (let i = 0; i < 330; i++) {
+          const val = Number(gloveData[i]);
+          inputTensor[i] = isNaN(val) ? 0 : val;
         }
+        
+        // 2. Feed the rigid array directly into the model
+        const output = await modelRef.current.run([inputTensor]);
+        
+        // 3. Process output and match with labels
+        if (output && output.length > 0 && output[0]) {
+          const scores = Array.from(output[0]);
+          predictionBuffer.current.push(scores);
+          
+          if (predictionBuffer.current.length > BUFFER_SIZE) {
+            predictionBuffer.current.shift();
+          }
 
-        // 2. Unwrap output shape: [scores] or [[scores]] -> flat scores array
-        let scores = output;
-        if (Array.isArray(scores) && scores.length === 1) {
-          scores = scores[0];
-          if (Array.isArray(scores) && scores.length === 1) {
-            scores = scores[0];
+          const avgScores = scores.map((_, col) =>
+            predictionBuffer.current.reduce((sum, row) => sum + row[col], 0) / predictionBuffer.current.length
+          );
+          
+          const maxVal = Math.max(...avgScores);
+          const predIndex = avgScores.indexOf(maxVal);
+
+          setConfidence(Math.round(maxVal * 100));
+          
+          // 70% confidence threshold
+          if (maxVal >= 0.70) {
+            setPrediction(labels[predIndex] || 'Unknown');
+          } else {
+            setPrediction('...');
           }
         }
-        const scoresArray = Array.isArray(scores) ? scores : Array.from(scores || []);
-
-        if (!scoresArray || scoresArray.length === 0) {
-          console.warn('Empty model output');
-          return;
-        }
-
-        // 3. Guard against NaN / Infinity
-        const hasInvalid = scoresArray.some((v) => !isFinite(v));
-        if (hasInvalid) {
-          console.warn('Model returned NaN/Inf - check input normalization');
-          setPrediction('Model error: invalid output');
-          return;
-        }
-
-        // 4. Get the class with highest confidence
-        const maxVal = Math.max(...scoresArray);
-        const predIndex = scoresArray.indexOf(maxVal);
-
-        if (predIndex < 0 || predIndex >= labels.length) {
-          console.warn('predIndex out of bounds:', predIndex, '(labels:', labels.length + ')');
-          setPrediction('Model error: label mismatch');
-          return;
-        }
-
-        // 5. Apply confidence threshold
-        //    Lowered from 0.50 to 0.40 to account for real-world sensor noise
-        if (maxVal >= 0.40) {
-          const gesture = labels[predIndex]; // FIX: labels is now an array, this works correctly
-          setPrediction(gesture);
-          console.log('Predicted: "' + gesture + '" (' + (maxVal * 100).toFixed(1) + '%)');
-        } else {
-          setPrediction('Scanning...');
-          console.log('Low confidence: ' + (maxVal * 100).toFixed(1) + '% -> index ' + predIndex);
-        }
       } catch (err) {
-        console.error('Prediction error:', err.message);
-        setPrediction('Model error: ' + (err.message || 'unknown'));
+        console.error('❌ [MODEL] Prediction crash:', err.message);
+      } finally {
+        isInferring.current = false;
       }
     };
 
     runPrediction();
-  }, [gloveData, model]);
+  }, [gloveData]);
 
-  return { prediction, modelReady };
+  return { prediction, confidence, modelReady };
 }
