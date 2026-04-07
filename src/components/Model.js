@@ -18,7 +18,7 @@ export default function useGloveModel(gloveData) {
     const loadModel = async () => {
       try {
         const loadedModel = await loadTensorflowModel(
-          require('../../assets/echo_model.tflite')
+          require('../../assets/echo_model_int8.tflite')
         );
         modelRef.current = loadedModel;
         setPrediction('Ready...');
@@ -70,7 +70,7 @@ export default function useGloveModel(gloveData) {
           setConfidence(Math.round(maxVal * 100));
           
           // 70% confidence threshold
-          if (maxVal >= 0.70) {
+          if (maxVal >= 0.20) {
             setPrediction(labels[predIndex] || 'Unknown');
           } else {
             setPrediction('...');

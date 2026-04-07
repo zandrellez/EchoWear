@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  View, Text, StyleSheet, TouchableOpacity, Animated, ActivityIndicator, Modal, Image, TextInput, Alert, PermissionsAndroid, Platform, Dimensions, StatusBar, FlatList, Keyboard, TouchableWithoutFeedback, KeyboardAvoidingView, Easing
+  ScrollView, View, Text, StyleSheet, TouchableOpacity, Animated, ActivityIndicator, Modal, Image, TextInput, Alert, PermissionsAndroid, Platform, Dimensions, StatusBar, FlatList, Keyboard, TouchableWithoutFeedback, KeyboardAvoidingView, Easing
 } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import Constants from "expo-constants";
@@ -15,15 +15,18 @@ const BOTTOM_TAB_HEIGHT = 60;
 export default function Home() {
   
   const [displayedText, setDisplayedText] = useState('');
+  const typingTimerRef = useRef(null);
 
   const {
     isConnected, isScanning, devices, gloveData,
     scanDevices, connectToDevice, disconnect,
-  } = useBluetooth();
+  } = useBluetooth(30, 11, handleIncomingGloveData);
 
-  // to be deleted
   const [bypassConnection, setBypassConnection] = useState(false);
   const showMainContent = isConnected || bypassConnection;
+  const handleIncomingGloveData = (data) => {
+    console.log("New Glove Data Received:", data);
+  };
 
   const {
     startVAD, stopRecording,
@@ -40,10 +43,13 @@ export default function Home() {
   const [manualText, setManualText] = useState(''); 
 
   const { speak, stop, isSpeaking } = useTextToSpeech();
-  const { prediction, confidence, loading: modelLoading, modelReady } = useGloveModel(gloveData);
+  
+  // Pass null to prevent the TFLite model crash on string data
+  const { prediction, confidence, loading: modelLoading, modelReady } = useGloveModel(null);
 
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
+  // Pulse animation for Speech-to-Text
   useEffect(() => {
     if (isRecording) {
       const pulse = Animated.loop(
@@ -69,6 +75,60 @@ export default function Home() {
     }
   }, [isRecording]);
 
+  // ==========================================
+  // FIXED AUTOSPEAK LOGIC
+  // ==========================================
+  useEffect(() => {
+    if (!gloveData || gloveData === 'null' || gloveData === 'Waiting for data...') return;
+
+    // 1. Handle "Clear" Gesture (Thumbs Up)
+    if (gloveData === '*') {
+      setDisplayedText('');
+      stop(); 
+      console.log("Screen Cleared via Thumbs Up");
+      return;
+    }
+
+    // 2. Define your new Dynamic Signs from the Arduino code
+    const dynamicSigns = [
+      "Sorry", "No", "Know", "Wait", "Late", "Never", 
+      "Bye", "Absent", "Yesterday", "Later", "J", "Z"
+    ];
+
+    // 3. Handle Dynamic Signs (Whole Words)
+    if (dynamicSigns.includes(gloveData)) {
+      // Speak the word immediately and add to text with a space
+      speak(gloveData);
+      setDisplayedText(prev => (prev ? prev + " " + gloveData : gloveData));
+      
+      // Clear any pending spelling timers
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+      return;
+    }
+
+    // 4. Handle Space Manual Gesture
+    if (gloveData === ' ') {
+      if (displayedText.length > 0) speak(displayedText);
+      setDisplayedText(prev => prev + ' ');
+      return;
+    }
+
+    // 5. Normal Spelling (Single Letters)
+    setDisplayedText(prev => prev + gloveData);
+
+    // 6. Spelling Timer (Speak the built word after 3s of silence)
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    
+    typingTimerRef.current = setTimeout(() => {
+      // Only speak if the last thing we were doing was spelling (not a dynamic word)
+      if (displayedText.length > 0 && !dynamicSigns.includes(gloveData)) {
+        speak(displayedText + gloveData);
+      }
+    }, 3000);
+
+  }, [gloveData]);
+
+  // ==========================================
   const handleTextToggle = () => {
     if (isTyping) {
       if (manualText.trim().length > 0) {
@@ -111,6 +171,15 @@ export default function Home() {
 
   const handleCloseModal = () => {
     setShowBluetoothModal(false);
+  };
+
+  // Helper function to cleanly display what the glove is currently sending
+  const getDisplayText = () => {
+    if (!isConnected) return "Disconnected";
+    if (!gloveData || gloveData === 'null' || gloveData === 'Waiting for data...') {
+      return "Start signing...";
+    }
+    return gloveData;
   };
 
   return (
@@ -183,7 +252,6 @@ export default function Home() {
             {/* Main content */}
             <View style={{flex: 1,}}>
               {!showMainContent ? (
-              // {!isConnected ? (
                 <>
                   <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
                     <TouchableOpacity onPress={handleScanDevices}
@@ -198,6 +266,7 @@ export default function Home() {
                       </Text>
                     </TouchableOpacity>
 
+                    {/* Bypass connection option for demo purposes
                     <TouchableOpacity 
                       onPress={() => setBypassConnection(true)}
                       style={{ alignSelf: 'center', marginBottom: 20 }}
@@ -206,6 +275,7 @@ export default function Home() {
                         Bypass connection (Demo Mode)
                       </Text>
                     </TouchableOpacity>
+                     */}  
 
                     <View style={[styles.messageCard, { flex: 4 }]}>
                       <View style={styles.textLinesContainer}>
@@ -238,7 +308,6 @@ export default function Home() {
                           <Text style={{ fontWeight: 'bold' }}>
                             {bypassConnection ? "Demo Mode" : "EchoWear Glove"}
                           </Text>{' '}
-                          <Text style={{ fontWeight: 'bold', color: '#E53935' }}></Text>
                         </Text>
 
                         <View style={styles.deviceStatusRow}>
@@ -246,11 +315,6 @@ export default function Home() {
                           <Text style={styles.deviceBattery}>
                             {bypassConnection ? "N/A" : "75%"}
                           </Text>
-                          {/* to be deleted
-                          <Text style={[styles.deviceConnected, { color: isConnected ? '#4CAF50' : '#F57C00' }]}>
-                            {isConnected ? 'Connected' : 'Disconnected'}
-                          </Text>
-                          */}
                           <Text style={[styles.deviceConnected, { color: showMainContent ? '#4CAF50' : '#F57C00' }]}>
                             {bypassConnection ? 'Bypassed' : 'Connected'}
                           </Text>
@@ -260,14 +324,12 @@ export default function Home() {
                       {/* Ellipsis menu and Rotation trigger container */}
                       <View style={{ position: 'relative', flexDirection: 'row', alignItems: 'center' }}>
                         
-                        {/* Rotation Toggle */}
                         <TouchableOpacity onPress={() => setIsFlipped(!isFlipped)}
                           style={{ marginRight: 15 }} 
                         >
                           <MaterialIcons name={isFlipped ? "screen-rotation" : "stay-primary-portrait"}  size={24} color="#E53935"/>
                         </TouchableOpacity>
                         
-                        {/* Ellipsis Menu */}
                         <TouchableOpacity onPress={() => setShowDeviceMenu(!showDeviceMenu)}>
                           <Ionicons name="ellipsis-vertical" size={22} color="#333" />
                         </TouchableOpacity>                      
@@ -304,17 +366,23 @@ export default function Home() {
                     {/* Translation Card */}
                     <View style={[styles.translationCard, { flex: 4 }, isFlipped && { transform: [{ rotate: '180deg' }] }]}>
                       <View style={styles.translationTextContainer}>
-                        <Text style={styles.translationText}>FSL to Speech</Text>
-                        <Text style={styles.translationPrompt}>
-                          {modelReady ? prediction : 'Loading model...'}
-                        </Text>
-
-                        {modelReady && prediction !== '...' && prediction !== 'Loading model...' && (
-                          <Text style={styles.accuracyText}>
-                            Accuracy: {confidence}%
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%', alignItems: 'center', marginBottom: 6 }}>
+                          <Text style={styles.translationText}>FSL to Speech</Text>
+                        </View>
+                        
+                        {/* Wrap the display text in a ScrollView */}
+                        <ScrollView 
+                          style={{ width: '100%', maxHeight: '80%' }} 
+                          contentContainerStyle={{ flexGrow: 1, justifyContent: 'flex-start' }}
+                          showsVerticalScrollIndicator={true}
+                        >
+                          <Text style={[styles.translationPrompt, { fontSize: 32, marginTop: 10 }]}>
+                            {displayedText || "Start spelling..."}
                           </Text>
-                        )}
+                        </ScrollView>
                       </View>
+                      
+                      {/* Replay Button remains at the bottom right */}
                       <TouchableOpacity
                         style={styles.translationPlayButton}
                         onPress={() => {
@@ -322,16 +390,13 @@ export default function Home() {
                             Alert.alert('Microphone Active', 'Please wait for the other person to finish speaking.');
                             return;
                           }
-                          if (prediction && !modelLoading) {
-                            speak(prediction);
-                          } else {
-                            Alert.alert('Nothing to speak', 'No translation available yet.');
+                          if (displayedText) {
+                            speak(displayedText); 
                           }
                         }}
-                        // Disable the button entirely if the phone is currently talking OR listening
                         disabled={isSpeaking || isRecording} 
                       >
-                        <Ionicons name="play" size={32} color={isRecording ? "#ccc" : "#E53935"} />
+                        <Ionicons name="volume-high" size={32} color={isRecording ? "#ccc" : "#E53935"} />
                       </TouchableOpacity>
                     </View>
 
@@ -344,7 +409,6 @@ export default function Home() {
                           Alert.alert('Translating', 'Please wait...');
                           return;
                         }
-                        // Button acts as manual fallback/toggle
                         isVADListening ? stopRecording() : startVAD();
                       }}
                       style={[styles.speechCard, { flex: 4 }, isVADListening && styles.activeSpeechCard]}
@@ -353,7 +417,6 @@ export default function Home() {
                         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
                           <Text style={styles.speechTitle}>Speech to Text</Text>
                           
-                          {/* 🔴 NEW: Live Indicator */}
                           {isVADListening && (
                             <View style={styles.recordingIndicator}>
                               <Animated.View style={[styles.redDot, { opacity: scaleAnim }]} />
@@ -397,7 +460,6 @@ export default function Home() {
                               styles.micButtonAnimated,
                               {
                                 transform: [{ scale: scaleAnim }],
-                                // Visual feedback for both VAD listening and actual recording
                                 shadowOpacity: isVADListening ? 0.9 : 0.3,
                                 backgroundColor: isVADListening ? '#E53935' : '#888',
                                 elevation: isVADListening ? 12 : 4,
@@ -437,366 +499,56 @@ export default function Home() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: "#fff",
-    paddingTop: STATUSBAR_HEIGHT,
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: 16,
-    paddingBottom: BOTTOM_TAB_HEIGHT,
-  },
-  header: {
-    height: 60,
-    backgroundColor: "#fff",
-    justifyContent: "center",
-    alignItems: "center",
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
-    elevation: 3,
-  },
-  headerImage: {
-    width: 160,
-    height: 45,
-  },
-  deviceItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-    paddingVertical: 12,
-    paddingHorizontal: 4,
-  },
-  deviceName: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#222',
-  },
-  deviceId: {
-    fontSize: 12,
-    color: '#888',
-    marginTop: 2,
-  },
-  connectLink: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#E53935', 
-  },
-  retryButton: {
-    backgroundColor: '#E53935',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 6,
-  },
-  retryButtonText: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  connectButton: {
-    backgroundColor: '#E53935',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 25,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    marginBottom: 20,
-  },
-  connectingButton: {
-    backgroundColor: '#c62828',
-  },
-  connectButtonText: {
-    color: 'white',
-    fontSize: 19,
-    fontWeight: '600',
-    marginLeft: 8,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.25)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalCard: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    paddingVertical: 24,
-    paddingHorizontal: 24,
-    width: '80%',
-    alignItems: 'stretch',
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-    marginBottom: 12,
-  },
-  modalFooter: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    width: '100%',
-    marginTop: 16,
-  },
-  modalTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#E53935',
-  },
-  modalText: {
-    fontSize: 16,
-    color: '#333',
-    textAlign: 'center',
-  },
-  closeButton: {
-    backgroundColor: 'white',
-    borderRadius: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-  },
-  closeButtonText: {
-    color: '#E53935',
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-  messageCard: {
-    backgroundColor: '#f0f0f0',
-    borderRadius: 12,
-    padding: 22,
-    marginBottom: 16,
-    flexDirection: 'row',
-    alignItems: 'flex-start', 
-    justifyContent: 'space-between', 
-    minHeight: 250,
-    position: 'relative', 
-  },
-  textLinesContainer: {
-    flex: 1,
-    marginRight: 16,
-    alignItems: 'flex-start', 
-    justifyContent: 'flex-start', 
-  },
-  shortTextLine: {
-    backgroundColor: '#d0d0d0',
-    height: 14,
-    borderRadius: 4,
-    marginBottom: 15,
-    width: '50%',
-  },
-  mediumTextLine: {
-    backgroundColor: '#d0d0d0',
-    height: 14,
-    borderRadius: 4,
-    marginBottom: 15,
-    width: '75%',
-  },
-  longTextLine: {
-    backgroundColor: '#d0d0d0',
-    height: 14,
-    borderRadius: 4,
-    marginBottom: 15,
-    width: '90%',
-  },
-  deviceCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: "#fff",
-    marginHorizontal: 15,
-    marginVertical: 8,
-    borderRadius: 12,
-    padding: 16,
-    elevation: 3,
-  flexShrink: 1, 
-  },
-  deviceImage: {
-    width: 50,
-    height: 50,
-  },
-  deviceTitle: {
-    fontSize: 18,
-    marginBottom: 6,
-  },
-  deviceStatusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  deviceBattery: {
-    marginLeft: 6,
-    marginRight: 10,
-    color: '#333',
-    fontWeight: '500',
-  },
-  deviceConnected: {
-    color: '#E53935',
-    fontWeight: '500',
-  },
-  deviceConnectButton: {
-    backgroundColor: '#E53935',
-    borderRadius: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    marginLeft: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  deviceConnectButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-  },
-  dropdownMenu: {
-    position: "absolute",
-    top: 28,  
-    right: 0,   
-    backgroundColor: "white",
-    borderRadius: 6,
-    shadowColor: "#000",
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 4,
-    minWidth: 140,
-    zIndex: 100,
-  },
-  dropdownItem: {
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-  },
-  dropdownText: {
-    fontSize: 16,
-    color: "#E53935",
-    fontWeight: "500",
-  },
-  translationCard: {
-    backgroundColor: "#E53935",
-    marginHorizontal: 15,
-    marginVertical: 8,
-    borderRadius: 12,
-    padding: 16,
-    elevation: 3,
-    position: "relative",
-    alignItems: 'flex-start'
-  },
-  translationTextContainer: {
-    alignItems: 'flex-start',
-    justifyContent: 'flex-start',
-    flexShrink: 1, 
-  },
-  translationText: {
-    color: 'white',
-    fontSize: 18,
-    marginBottom: 6,
-    textAlign: 'left',
-    fontWeight: 'bold',
-  },
-  translationPrompt: {
-    color: '#fff',
-    fontSize: 24,
-    marginBottom: 4,
-    textAlign: 'left',
-    fontStyle: 'italic',
-  },
-  accuracyText: {
-    color: '#fff',
-    fontSize: 14, // 👈 Smaller text as requested
-    opacity: 0.9,
-    fontWeight: '500',
-    marginBottom: 14,
-  },
-  translationPlayButton: {
-    position: 'absolute',
-    right: 20,
-    bottom: 20,
-    backgroundColor: 'white',
-    borderRadius: 32,
-    width: 60,
-    height: 60,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 2,
-  },
-  speechCard: {
-    backgroundColor: "#fff",
-    marginHorizontal: 15,
-    marginTop: 8,
-    marginBottom: 15,
-    borderRadius: 12,
-    padding: 16,
-    elevation: 3,
-    position: "relative",
-    alignItems: 'flex-start'
-  },
-  activeSpeechCard: {
-    borderColor: '#E53935',
-    borderWidth: 1,
-  },
-  recordingIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: 10,
-    backgroundColor: '#FFEBEE',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  redDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#E53935',
-    marginRight: 6,
-  },
-  liveText: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    color: '#E53935',
-  },
-  speechTextContainer: {
-    flex: 1,
-    alignItems: 'flex-start', 
-    justifyContent: 'flex-start',
-  },
-  speechTitle: {
-    color: '#E53935',
-    fontWeight: 'bold',
-    fontSize: 20,
-    marginBottom: 8,
-  },
-  speechPrompt: {
-    color: '#888',
-    fontSize: 24,
-    marginBottom: 18,
-  },
-  micButtonAnimated: {
-    backgroundColor: '#E53935',
-    borderRadius: 32,
-    width: 60,
-    height: 60,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#E53935',
-  },
-
-  textInput: {
-    fontSize: 24,
-    borderBottomWidth: 1,
-    borderColor: "#ddd",
-    color: "#333",
-    paddingVertical: 6,
-    marginBottom: 16,
-    width: "100%",
-  },
-  rightColumn: {
-    position: "absolute",
-    right: 16,
-    bottom: 16,
-    alignItems: "center",
-  },
+  safeArea: { flex: 1, backgroundColor: "#fff", paddingTop: STATUSBAR_HEIGHT },
+  content: { flex: 1, paddingHorizontal: 16, paddingBottom: BOTTOM_TAB_HEIGHT },
+  header: { height: 60, backgroundColor: "#fff", justifyContent: "center", alignItems: "center", borderBottomWidth: 1, borderBottomColor: "#eee", elevation: 3 },
+  headerImage: { width: 160, height: 45 },
+  deviceItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#eee', paddingVertical: 12, paddingHorizontal: 4 },
+  deviceName: { fontSize: 16, fontWeight: '500', color: '#222' },
+  deviceId: { fontSize: 12, color: '#888', marginTop: 2 },
+  connectLink: { fontSize: 14, fontWeight: '600', color: '#E53935' },
+  retryButton: { backgroundColor: '#E53935', paddingVertical: 8, paddingHorizontal: 16, borderRadius: 6 },
+  retryButtonText: { color: 'white', fontSize: 14, fontWeight: 'bold' },
+  connectButton: { backgroundColor: '#E53935', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 25, paddingHorizontal: 20, borderRadius: 8, marginBottom: 20 },
+  connectingButton: { backgroundColor: '#c62828' },
+  connectButtonText: { color: 'white', fontSize: 19, fontWeight: '600', marginLeft: 8 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.25)', justifyContent: 'center', alignItems: 'center' },
+  modalCard: { backgroundColor: 'white', borderRadius: 16, paddingVertical: 24, paddingHorizontal: 24, width: '80%', alignItems: 'stretch', elevation: 6, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', marginBottom: 12 },
+  modalFooter: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', width: '100%', marginTop: 16 },
+  modalTitle: { fontSize: 22, fontWeight: 'bold', color: '#E53935' },
+  modalText: { fontSize: 16, color: '#333', textAlign: 'center' },
+  closeButton: { backgroundColor: 'white', borderRadius: 6, paddingVertical: 8, paddingHorizontal: 10 },
+  closeButtonText: { color: '#E53935', fontWeight: 'bold', fontSize: 14 },
+  messageCard: { backgroundColor: '#f0f0f0', borderRadius: 12, padding: 22, marginBottom: 16, flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', minHeight: 250, position: 'relative' },
+  textLinesContainer: { flex: 1, marginRight: 16, alignItems: 'flex-start', justifyContent: 'flex-start' },
+  shortTextLine: { backgroundColor: '#d0d0d0', height: 14, borderRadius: 4, marginBottom: 15, width: '50%' },
+  mediumTextLine: { backgroundColor: '#d0d0d0', height: 14, borderRadius: 4, marginBottom: 15, width: '75%' },
+  longTextLine: { backgroundColor: '#d0d0d0', height: 14, borderRadius: 4, marginBottom: 15, width: '90%' },
+  deviceCard: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: "#fff", marginHorizontal: 15, marginVertical: 8, borderRadius: 12, padding: 16, elevation: 3, flexShrink: 1 },
+  deviceImage: { width: 50, height: 50 },
+  deviceTitle: { fontSize: 18, marginBottom: 6 },
+  deviceStatusRow: { flexDirection: 'row', alignItems: 'center' },
+  deviceBattery: { marginLeft: 6, marginRight: 10, color: '#333', fontWeight: '500' },
+  deviceConnected: { color: '#E53935', fontWeight: '500' },
+  dropdownMenu: { position: "absolute", top: 28, right: 0, backgroundColor: "white", borderRadius: 6, shadowColor: "#000", shadowOpacity: 0.2, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, elevation: 4, minWidth: 140, zIndex: 100 },
+  dropdownItem: { paddingVertical: 10, paddingHorizontal: 14 },
+  dropdownText: { fontSize: 16, color: "#E53935", fontWeight: "500" },
+  translationCard: { backgroundColor: "#E53935", marginHorizontal: 15, marginVertical: 8, borderRadius: 12, padding: 16, elevation: 3, position: "relative", alignItems: 'flex-start' },
+  translationTextContainer: { alignItems: 'flex-start', justifyContent: 'flex-start', flexShrink: 1, width: '100%' },
+  translationText: { color: 'white', fontSize: 18, textAlign: 'left', fontWeight: 'bold' },
+  translationPrompt: { color: '#fff', fontSize: 24, marginBottom: 4, textAlign: 'left', fontStyle: 'italic' },
+  accuracyText: { color: '#fff', fontSize: 14, opacity: 0.9, fontWeight: '500', marginBottom: 14 },
+  translationPlayButton: { position: 'absolute', right: 20, bottom: 20, backgroundColor: 'white', borderRadius: 32, width: 60, height: 60, justifyContent: 'center', alignItems: 'center', elevation: 2 },
+  speechCard: { backgroundColor: "#fff", marginHorizontal: 15, marginTop: 8, marginBottom: 15, borderRadius: 12, padding: 16, elevation: 3, position: "relative", alignItems: 'flex-start' },
+  activeSpeechCard: { borderColor: '#E53935', borderWidth: 1 },
+  recordingIndicator: { flexDirection: 'row', alignItems: 'center', marginLeft: 10, backgroundColor: '#FFEBEE', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+  redDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#E53935', marginRight: 6 },
+  liveText: { fontSize: 10, fontWeight: 'bold', color: '#E53935' },
+  speechTextContainer: { flex: 1, alignItems: 'flex-start', justifyContent: 'flex-start' },
+  speechTitle: { color: '#E53935', fontWeight: 'bold', fontSize: 20, marginBottom: 8 },
+  speechPrompt: { color: '#888', fontSize: 24, marginBottom: 18 },
+  micButtonAnimated: { backgroundColor: '#E53935', borderRadius: 32, width: 60, height: 60, justifyContent: 'center', alignItems: 'center', shadowColor: '#E53935' },
+  textInput: { fontSize: 24, borderBottomWidth: 1, borderColor: "#ddd", color: "#333", paddingVertical: 6, marginBottom: 16, width: "100%" },
+  rightColumn: { position: "absolute", right: 16, bottom: 16, alignItems: "center" }
 });

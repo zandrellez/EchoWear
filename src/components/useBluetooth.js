@@ -109,72 +109,36 @@ export function useBluetooth(timesteps = 30, features = 11, onData) {
         setIsConnected(false);
         setSelectedDevice(null);
         connectedDeviceIdRef.current = null;
-        setGloveData('Waiting for data...');
+        setGloveData(null); // Reset prediction on disconnect
         bufferRef.current = [];
       });
 
       connectedDevice.monitorCharacteristicForService(
         SERVICE_UUID,
         CHARACTERISTIC_UUID,
+        // Inside useBluetooth.js -> connectToDevice -> monitorCharacteristicForService
         (error, characteristic) => {
           if (error) return console.log('Monitor error:', error);
           if (!characteristic?.value) return;
 
           try {
-            const rawStr = Buffer.from(characteristic.value, 'base64').toString('utf8');
-            let arr = rawStr.split(',').map(x => parseFloat(x.trim()));
+            // 1. Decode base64
+            const rawStr = Buffer.from(characteristic.value, 'base64').toString('utf8').trim();
+            console.log('Parsed BLE Data:', rawStr);
 
-            if (arr.length < features || arr.some(v => !Number.isFinite(v))) {
-              console.warn('⚠️ Rejected corrupted BLE frame:', rawStr);
-              return;
+            let detectedValue = "";
+
+            // 2. Flexible Parsing: Check if it contains a colon, otherwise use raw string
+            if (rawStr.includes(':')) {
+              detectedValue = rawStr.split(':')[1].trim(); 
+            } else {
+              detectedValue = rawStr; // Handles the current "A", "B", "1" format
             }
+            
+            // 3. Update state and trigger callback
+            setGloveData(detectedValue);
+            if (onData) onData(detectedValue);
 
-            const normalizedRow = arr.slice(0, features).map((val, index) => {
-              if (index < 5) {
-                // CRITICAL FIX: Arduino is already sending 0.0 to 1.0!
-                // Do NOT divide by 100 here anymore. Just pass it through.
-                return Math.max(0, Math.min(1, val)); 
-              } else {
-                // MPU: -1..1 → 0..1 (Assuming training data was scaled this way)
-                return Math.max(0, Math.min(1, (val + 1) / 2));
-              }
-            });
-
-            if (normalizedRow.some(v => !Number.isFinite(v))) return;
-
-            bufferRef.current.push(normalizedRow);
-            if (bufferRef.current.length > timesteps) bufferRef.current.shift();
-
-            if (bufferRef.current.length === timesteps) {              
-              // 🔴 CRITICAL FIX 1: Throttle UI updates to 4Hz (every 5th frame)
-              frameCounterRef.current += 1;
-              if (frameCounterRef.current % 5 !== 0) {
-                // console.log(`⏳ Skipped frame ${frameCounterRef.current} to prevent UI lag`);
-                return;
-              }
-
-              const dataCopy = [...bufferRef.current];
-
-              // 🔴 CRITICAL FIX 2: Use a standard Array, NOT Float32Array here!
-              // This prevents React/Hermes from destroying the object structure.
-              const flatInput = new Array(timesteps * features);          
-              
-              for (let i = 0; i < timesteps; i++) {
-                for (let j = 0; j < features; j++) {
-                  flatInput[i * features + j] = dataCopy[i][j];
-                }
-              }
-
-              if (flatInput.some(v => !Number.isFinite(v) || v === null || v === undefined)) {
-                 console.error('❌ Critical Error: flatInput contains NaN! Aborting dispatch.');
-                 return;
-              }
-
-              // console.log(`📡 [BLE] Throttle open. Sending Frame ${frameCounterRef.current}. Length: ${flatInput.length}`);
-
-              setGloveData(flatInput);
-              if (onData) onData(flatInput);
-            }
           } catch (err) {
             console.log('❌ BLE parse error:', err);
           }
