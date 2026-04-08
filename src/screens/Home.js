@@ -49,6 +49,58 @@ export default function Home() {
 
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
+  // --- NEW AI STATES ---
+  const [isAiThinking, setIsAiThinking] = useState(false);
+  const currentTextRef = useRef('');
+  const isTranslatedRef = useRef(false);
+
+  // Keep a ref synced so the timer always grabs the latest text
+  useEffect(() => {
+    currentTextRef.current = displayedText;
+  }, [displayedText]);
+
+  // --- GEMINI AI FUNCTION ---
+  const fixTextWithAI = async (messyText) => {
+    setIsAiThinking(true);
+    const apiKey = 'AIzaSyBCKW1RgmkYTH9fPV_eauyejYeSQtaPvZs'; // <--- Put your actual Gemini Key here
+    
+    const prompt = `I am building an FSL (Filipino Sign Language) translator glove. The sensors are noisy. The input below is a raw sequence of spelled letters, spaces, and full words (like "Sorry" or "No"). 
+    - Some letters might be accidentally recognized as full words due to sensor noise. 
+    - The grammar might be literal FSL syntax (e.g., "ME LATE" or "HELP YOU").
+    Your job is to read this messy sequence, fix the typos, interpret the context, and translate it into a clean, natural English sentence or word. 
+    Reply ONLY with the final corrected text. No quotes, no explanations. 
+    Raw input: "${messyText}"`;
+
+    try {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+      });
+
+      const data = await response.json();
+      
+      if (data.candidates && data.candidates.length > 0) {
+        const cleanText = data.candidates[0].content.parts[0].text.trim();
+        console.log("🧠 AI Fixed Text:", cleanText);
+        
+        setDisplayedText(cleanText); 
+        isTranslatedRef.current = true; // <--- ADD THIS: Tell the app the translation is finished!
+        
+        if (cleanText !== messyText) {
+          speak(cleanText);            
+        }
+      } else {
+        console.log("⚠️ AI returned empty/blocked data:", data);
+      }
+
+    } catch (error) {
+      console.log("❌ AI Error:", error);
+    } finally {
+      setIsAiThinking(false);
+    }
+  };
+
   // Pulse animation for Speech-to-Text
   useEffect(() => {
     if (isRecording) {
@@ -76,55 +128,55 @@ export default function Home() {
   }, [isRecording]);
 
   // ==========================================
-  // FIXED AUTOSPEAK LOGIC
+  // UPDATED AI AUTOCORRECT LOGIC
   // ==========================================
   useEffect(() => {
     if (!gloveData || gloveData === 'null' || gloveData === 'Waiting for data...') return;
 
-    // 1. Handle "Clear" Gesture (Thumbs Up)
-    if (gloveData === '*') {
+    // 1. Handle CLEAR 
+    if (gloveData === '*' || gloveData === 'CLEAR') {
       setDisplayedText('');
+      isTranslatedRef.current = false;
       stop(); 
-      console.log("Screen Cleared via Thumbs Up");
       return;
     }
 
-    // 2. Define your new Dynamic Signs from the Arduino code
-    const dynamicSigns = [
-      "Sorry", "No", "Know", "Wait", "Late", "Never", 
-      "Bye", "Absent", "Yesterday", "Later", "J", "Z"
-    ];
-
-    // 3. Handle Dynamic Signs (Whole Words)
-    if (dynamicSigns.includes(gloveData)) {
-      // Speak the word immediately and add to text with a space
-      speak(gloveData);
-      setDisplayedText(prev => (prev ? prev + " " + gloveData : gloveData));
-      
-      // Clear any pending spelling timers
-      if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    // 2. Handle DELETE
+    if (gloveData === 'DELETE') {
+      setDisplayedText(prev => prev.slice(0, -1));
+      isTranslatedRef.current = false;
       return;
     }
 
-    // 4. Handle Space Manual Gesture
-    if (gloveData === ' ') {
-      if (displayedText.length > 0) speak(displayedText);
-      setDisplayedText(prev => prev + ' ');
-      return;
+    // 3. Handle Spelling, Spaces, & Dynamic Signs
+    const dynamicSigns = ["Sorry", "No", "Know", "Wait", "Late", "Never", "Bye", "Absent", "Yesterday", "Later", "J", "Z"];
+    
+    if (isTranslatedRef.current) {
+      // IF AI JUST FINISHED, WIPE THE SCREEN AND START THE NEW WORD!
+      const newText = gloveData === ' ' ? '' : gloveData;
+      setDisplayedText(newText);
+      isTranslatedRef.current = false; // Reset the flag
+    } else {
+      // OTHERWISE, KEEP APPENDING LETTERS NORMALLY
+      if (gloveData === ' ') {
+        setDisplayedText(prev => prev + ' ');
+      } else if (dynamicSigns.includes(gloveData)) {
+        setDisplayedText(prev => (prev ? prev + " " + gloveData : gloveData));
+      } else {
+        setDisplayedText(prev => prev + gloveData);
+      }
     }
 
-    // 5. Normal Spelling (Single Letters)
-    setDisplayedText(prev => prev + gloveData);
-
-    // 6. Spelling Timer (Speak the built word after 3s of silence)
+    // --- AI TRIGGER TIMER ---
     if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
     
     typingTimerRef.current = setTimeout(() => {
-      // Only speak if the last thing we were doing was spelling (not a dynamic word)
-      if (displayedText.length > 0 && !dynamicSigns.includes(gloveData)) {
-        speak(displayedText + gloveData);
+      // Only send to AI if there is text AND it hasn't already been translated
+      if (currentTextRef.current.trim().length > 0 && !isTranslatedRef.current) {
+        console.log("⏱️ User paused! Sending to AI:", currentTextRef.current);
+        fixTextWithAI(currentTextRef.current);
       }
-    }, 3000);
+    }, 2500); // Increased to 2.5 seconds to give you more breathing room to spell!
 
   }, [gloveData]);
 
@@ -376,8 +428,10 @@ export default function Home() {
                           contentContainerStyle={{ flexGrow: 1, justifyContent: 'flex-start' }}
                           showsVerticalScrollIndicator={true}
                         >
-                          <Text style={[styles.translationPrompt, { fontSize: 32, marginTop: 10 }]}>
-                            {displayedText || "Start spelling..."}
+                          <Text style={[styles.translationPrompt, { fontSize: 32, marginTop: 10, color: isAiThinking ? '#ffbaba' : '#fff' }]}>
+                            {isAiThinking 
+                              ? "✨ Translating..." 
+                              : (displayedText || "Start spelling...")}
                           </Text>
                         </ScrollView>
                       </View>
