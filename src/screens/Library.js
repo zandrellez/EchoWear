@@ -71,24 +71,24 @@ const animationMap = {
   9: "Number_9",
 
   // Basic Expressions
-  // "Come here": "BE_ComeHere",
-  // "Don’t Know": "BE_DontKnow",
-  "Don’t understand": "BE_DON'TUNDERSTAND",
-  // "Excuse me": "BE_ExcuseMe",
-  "Know": "BE_KNOW",
-  // "Bless (Mano po)": "BE_BlessManoPo",
-  "No": "BE_NO",
-  // "OK": "BE_OK",
-  // "Please": "BE_Please",
-  "Sorry": "BE_SORRY",
-  // "Understand": "BE_Understand",
-  // "Uy": "BE_Uy",
-  "Wait": "BE_WAIT",
-  "What?": "BE_WHAT",
-  // "When?": "BE_When?",
-  // "Why?": "BE_Why?",
-  // "Wrong": "BE_Wrong",
-  // "Yes": "BE_Yes",
+  "Bless (Mano po)": "BE_Bless",
+  "Come here": "BE_ComeHere",
+  "Don’t Know": "BE_DontKnow",
+  "Don’t understand": "BE_DontUnderstand",
+  "Excuse me": "BE_ExcuseMe",
+  "Know": "BE_Know",
+  "No": "BE_No",
+  "OK": "BE_OK",
+  "Please": "BE_Please",
+  "Sorry": "BE_Sorry",
+  "Understand": "BE_Understand",
+  "Uy": "BE_Uy",
+  "Wait": "BE_Wait",
+  "What?": "BE_What",
+  "When?": "BE_When",
+  "Why?": "BE_Why",
+  "Wrong": "BE_Wrong",
+  "Yes": "BE_Yes",
 
   // Greetings & Farewells
   "Bye": "GaF_Bye",
@@ -149,10 +149,9 @@ const words = {
     "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"
   ],
   "Basic Expressions": [
-    // "Come here", "Don’t Know",  "Excuse me", "Bless (Mano po)", 
-    // "OK", "Please", "Understand", "Uy", , "When?", "Why?", 
-    // "Wrong", "Yes"
-    "Don’t understand", "Know",  "No", "Sorry", "Wait", "What?"
+    "Bless (Mano po)", "Come here", "Don’t Know", "Don’t understand",
+    "Excuse me", "Know", "No", "OK", "Please", "Sorry", "Understand", 
+    "Uy", "Wait", "What?", "When?", "Why?", "Wrong", "Yes"
   ],
   "Greetings & Farewells": [
     "Bye", "Good afternoon", "Good evening", "Good morning",
