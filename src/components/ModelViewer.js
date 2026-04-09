@@ -43,8 +43,8 @@ const ModelViewer = forwardRef(function ModelViewer(
 
     // --- CAMERA SETUP ---
     const camera = new THREE.PerspectiveCamera(75, gl.drawingBufferWidth / gl.drawingBufferHeight, 0.1, 1000);
-    camera.position.set(0, 1.0, 2.2); // Zoomed in slightly
-    camera.lookAt(0, 1.0, 0);         // Look at chest area
+    camera.position.set(0.0, 1.4, 1.2); // Zoomed in slightly
+    camera.lookAt(.05, 0.85, 0);         // Look at chest area
     cameraRef.current = camera;
 
     // --- LIGHTING ---
@@ -162,7 +162,7 @@ const ModelViewer = forwardRef(function ModelViewer(
 
         // Setup Model transform
         model.scale.set(1.7, 1.7, 1.7);
-        model.position.set(0, 0, 0);
+        model.position.set(0.2, 0, 0);
         model.position.y += offset.y;
         if(offset.x) model.position.x += offset.x;
 
