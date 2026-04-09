@@ -1,5 +1,5 @@
 import React, { useRef, useImperativeHandle, forwardRef, useState, useEffect } from "react";
-import { PanResponder, View, ActivityIndicator, Dimensions } from "react-native";
+import { PanResponder, View, ActivityIndicator, Dimensions, Text } from "react-native";
 import { GLView } from "expo-gl";
 import { Renderer } from "expo-three";
 import * as THREE from "three";
@@ -29,7 +29,7 @@ const ModelViewer = forwardRef(function ModelViewer(
     theta: savedCameraRef?.current?.theta ?? (Math.PI / 2),
     phi: savedCameraRef?.current?.phi ?? (Math.PI / 2),
     radius: savedCameraRef?.current?.radius ?? 3,
-    target: new THREE.Vector3(0, 0.8, 0), 
+    target: new THREE.Vector3(0, 1.10, 0), 
   });
 
   // --- TRAIL REFS ---
@@ -311,18 +311,20 @@ const ModelViewer = forwardRef(function ModelViewer(
             if (savedCameraRef) {
                 savedCameraRef.current.radius = orbitState.current.radius;
             }
-            
+
             updateCameraPosition();
           }
           lastTouchDistanceRef.current = dist;
         }
       },
-      onPanResponderRelease: () => { lastTouchDistanceRef.current = null; },
+      onPanResponderRelease: () => { 
+          lastTouchDistanceRef.current = null; 
+      },
     })
   ).current;
 
   return (
-    <View style={{flex: 1}}>
+    <View style={{flex: 1}}>      
       {loading && (
         <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, justifyContent: "center", alignItems: "center", zIndex: 10 }}>
           <ActivityIndicator size="large" color="#E64C3C" />

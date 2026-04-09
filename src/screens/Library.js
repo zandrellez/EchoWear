@@ -264,8 +264,7 @@ export default function Library() {
   const [selectedCategory, setSelectedCategory] = useState("Alphabet");
   const [selectedWordIndex, setSelectedWordIndex] = useState(null);
 
-  const savedCameraRef = useRef({ theta: Math.PI / 2, phi: Math.PI / 2, radius: 3 });
-
+const savedCameraRef = useRef({ theta: 1.54, phi: 1.44, radius: 1.77 });
   const wasInFocusRef = useRef(false);
   const categoryListRef = useRef(null);
 
