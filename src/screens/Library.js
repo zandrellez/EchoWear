@@ -263,6 +263,9 @@ const modelThumbnails = {
 export default function Library() {
   const [selectedCategory, setSelectedCategory] = useState("Alphabet");
   const [selectedWordIndex, setSelectedWordIndex] = useState(null);
+
+  const savedCameraRef = useRef({ theta: Math.PI / 2, phi: Math.PI / 2, radius: 3 });
+
   const wasInFocusRef = useRef(false);
   const categoryListRef = useRef(null);
 
@@ -381,6 +384,8 @@ export default function Library() {
         wordList={currentWords}
         currentIndex={selectedWordIndex}
         onSelectWordFromModal={(index) => setSelectedWordIndex(index)}
+
+        savedCameraRef={savedCameraRef}
       />
     );
   }

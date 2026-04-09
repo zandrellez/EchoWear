@@ -9,7 +9,8 @@ export default function WordFocus({
   word, category, categoryIcon, 
   modelSource, animationName, 
   onBack, onNext, onPrev, canNext, canPrev, 
-  wordList, currentIndex, onSelectWordFromModal 
+  wordList, currentIndex, onSelectWordFromModal,
+  savedCameraRef
 }) {
   const modelRef = useRef();
   const [animationSpeed, setAnimationSpeed] = useState(1);
@@ -71,6 +72,7 @@ export default function WordFocus({
             source={modelSource}
             animationName={animationName}
             animationSpeed={animationSpeed}
+            savedCameraRef={savedCameraRef}
          />
       </View>
 

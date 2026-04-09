@@ -13,7 +13,7 @@ const TRAIL_LENGTH = 0;   // Number of frames the trail lasts
 const TRAIL_COLOR = "#E53935"; 
 
 const ModelViewer = forwardRef(function ModelViewer(
-  { source, animationName, animationSpeed = 1, rotationSpeed = 0, offset = { x: 0, y: -1.3 } },
+  { source, animationName, animationSpeed = 1, rotationSpeed = 0, offset = { x: 0, y: -1.3 }, savedCameraRef },
   ref
 ) {
   const sceneRef = useRef(null);
@@ -26,10 +26,10 @@ const ModelViewer = forwardRef(function ModelViewer(
 
   // --- ORBIT STATE REFS ---
   const orbitState = useRef({
-    theta: Math.PI / 2,               // Horizontal angle
-    phi: Math.PI / 2,       // Vertical angle (90 degrees / eye level)
-    radius: 3,              // Distance from center
-    target: new THREE.Vector3(0, 0.8, 0), // Point the camera looks at
+    theta: savedCameraRef?.current?.theta ?? (Math.PI / 2),
+    phi: savedCameraRef?.current?.phi ?? (Math.PI / 2),
+    radius: savedCameraRef?.current?.radius ?? 3,
+    target: new THREE.Vector3(0, 0.8, 0), 
   });
 
   // --- TRAIL REFS ---
@@ -294,6 +294,11 @@ const ModelViewer = forwardRef(function ModelViewer(
           // Constraints: Prevent flipping over the top/bottom
           orbitState.current.phi = Math.max(0.1, Math.min(Math.PI - 0.1, orbitState.current.phi));
           
+          if (savedCameraRef) {
+              savedCameraRef.current.theta = orbitState.current.theta;
+              savedCameraRef.current.phi = orbitState.current.phi;
+          }
+
           updateCameraPosition();
         } 
         else if (touches.length === 2) {
@@ -302,6 +307,11 @@ const ModelViewer = forwardRef(function ModelViewer(
           if (lastTouchDistanceRef.current !== null) {
             const delta = (dist - lastTouchDistanceRef.current) * 0.01;
             orbitState.current.radius = Math.max(1, Math.min(10, orbitState.current.radius - delta));
+            
+            if (savedCameraRef) {
+                savedCameraRef.current.radius = orbitState.current.radius;
+            }
+            
             updateCameraPosition();
           }
           lastTouchDistanceRef.current = dist;
