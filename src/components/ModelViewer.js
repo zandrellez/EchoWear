@@ -1,5 +1,5 @@
 import React, { useRef, useImperativeHandle, forwardRef, useState, useEffect } from "react";
-import { PanResponder, View, ActivityIndicator } from "react-native";
+import { PanResponder, View, ActivityIndicator, Dimensions } from "react-native";
 import { GLView } from "expo-gl";
 import { Renderer } from "expo-three";
 import * as THREE from "three";
@@ -24,6 +24,14 @@ const ModelViewer = forwardRef(function ModelViewer(
   const cameraRef = useRef();
   const glRef = useRef(null);
 
+  // --- ORBIT STATE REFS ---
+  const orbitState = useRef({
+    theta: Math.PI / 2,               // Horizontal angle
+    phi: Math.PI / 2,       // Vertical angle (90 degrees / eye level)
+    radius: 3,              // Distance from center
+    target: new THREE.Vector3(0, 0.8, 0), // Point the camera looks at
+  });
+
   // --- TRAIL REFS ---
   const trailMeshRef = useRef(null);
   const trailPointsRef = useRef([]); 
@@ -31,6 +39,18 @@ const ModelViewer = forwardRef(function ModelViewer(
 
   const [loading, setLoading] = useState(true);
   const [glContextCreated, setGlContextCreated] = useState(false);
+
+  const updateCameraPosition = () => {
+    if (!cameraRef.current) return;
+    const { theta, phi, radius, target } = orbitState.current;
+
+    // Convert Spherical to Cartesian coordinates
+    cameraRef.current.position.x = target.x + radius * Math.sin(phi) * Math.cos(theta);
+    cameraRef.current.position.y = target.y + radius * Math.cos(phi);
+    cameraRef.current.position.z = target.z + radius * Math.sin(phi) * Math.sin(theta);
+    
+    cameraRef.current.lookAt(target);
+  };
 
   const onContextCreate = async (gl) => {
     glRef.current = gl;
@@ -41,12 +61,11 @@ const ModelViewer = forwardRef(function ModelViewer(
     const scene = new THREE.Scene();
     sceneRef.current = scene;
 
-    // --- CAMERA SETUP ---
-    const camera = new THREE.PerspectiveCamera(75, gl.drawingBufferWidth / gl.drawingBufferHeight, 0.1, 1000);
-    camera.position.set(0.0, 1.4, 1.2); // Zoomed in slightly
-    camera.lookAt(.05, 0.85, 0);         // Look at chest area
+// --- CAMERA SETUP ---
+    const camera = new THREE.PerspectiveCamera(50, gl.drawingBufferWidth / gl.drawingBufferHeight, 0.1, 1000);
     cameraRef.current = camera;
-
+    updateCameraPosition();
+    
     // --- LIGHTING ---
     const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
     scene.add(ambientLight);
@@ -84,7 +103,6 @@ const ModelViewer = forwardRef(function ModelViewer(
       const delta = clock.getDelta();
       
       if (mixerRef.current) mixerRef.current.update(delta);
-      if (modelRef.current && rotationSpeed !== 0) modelRef.current.rotation.y += rotationSpeed;
 
       // --- TRAIL UPDATE LOGIC ---
       if (handBoneRef.current && trailMeshRef.current && currentActionRef.current?.isRunning() && animationSpeed > 0) {
@@ -258,7 +276,7 @@ const ModelViewer = forwardRef(function ModelViewer(
     }
   }));
 
-  // --- TOUCH CONTROLS ---
+// --- TOUCH CONTROLS ---
   const lastTouchDistanceRef = useRef(null);
   const panResponder = useRef(
     PanResponder.create({
@@ -266,16 +284,27 @@ const ModelViewer = forwardRef(function ModelViewer(
       onMoveShouldSetPanResponder: () => true,
       onPanResponderMove: (evt, gestureState) => {
         const touches = evt.nativeEvent.touches;
-        if (touches.length === 2 && cameraRef.current) {
-           const [t1, t2] = touches;
-           const dist = Math.hypot(t1.pageX - t2.pageX, t1.pageY - t2.pageY);
-           if (lastTouchDistanceRef.current !== null) {
-              const delta = (dist - lastTouchDistanceRef.current) * 0.005; 
-              cameraRef.current.position.z -= delta;
-           }
-           lastTouchDistanceRef.current = dist;
-        } else if (touches.length === 1 && modelRef.current) {
-           modelRef.current.rotation.y += gestureState.dx * 0.005;
+
+        if (touches.length === 1) {
+          // ROTATION (Orbit)
+          const screenScale = 0.002; 
+          orbitState.current.theta += gestureState.dx * screenScale;
+          orbitState.current.phi -= gestureState.dy * screenScale;
+
+          // Constraints: Prevent flipping over the top/bottom
+          orbitState.current.phi = Math.max(0.1, Math.min(Math.PI - 0.1, orbitState.current.phi));
+          
+          updateCameraPosition();
+        } 
+        else if (touches.length === 2) {
+          // ZOOM (Pinch)
+          const dist = Math.hypot(touches[0].pageX - touches[1].pageX, touches[0].pageY - touches[1].pageY);
+          if (lastTouchDistanceRef.current !== null) {
+            const delta = (dist - lastTouchDistanceRef.current) * 0.01;
+            orbitState.current.radius = Math.max(1, Math.min(10, orbitState.current.radius - delta));
+            updateCameraPosition();
+          }
+          lastTouchDistanceRef.current = dist;
         }
       },
       onPanResponderRelease: () => { lastTouchDistanceRef.current = null; },
