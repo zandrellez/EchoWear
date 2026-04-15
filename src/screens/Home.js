@@ -24,11 +24,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import Constants from "expo-constants";
 
-import useGloveModel from '../components/Model';
 import { useTextToSpeech } from '../components/useTextToSpeech';
 import useSpeechToText from '../components/useSpeechToText'; 
 import { useBluetooth} from '../components/useBluetooth'; 
-import { Buffer } from "buffer";
 
 const { width } = Dimensions.get("window");
 const STATUSBAR_HEIGHT = Platform.OS === "ios" ? Constants.statusBarHeight : StatusBar.currentHeight || 0;
@@ -42,7 +40,8 @@ export default function Home() {
     selectedDevice,
     isScanning,
     devices,
-    gloveData,
+    outputText,
+    signedText,
     scanDevices,
     connectToDevice,
     disconnect,
@@ -64,7 +63,7 @@ export default function Home() {
   const [isConnecting, setIsConnecting] = useState(false);
 
   const { speak, stop, isSpeaking } = useTextToSpeech();
-  const { prediction, loading: modelLoading, modelReady } = useGloveModel(gloveData);
+  const displayedPrediction = signedText || outputText || (isConnected ? 'Waiting for glove output...' : '');
 
   const [isTyping, setIsTyping] = useState(false); 
   const [manualText, setManualText] = useState(''); 
@@ -126,9 +125,28 @@ export default function Home() {
       setShowBluetoothModal(true);
     }
   };
-  const handleConnectToDevice = (device) => {
-    connectToDevice(device);
+  const handleConnectToDevice = async (device) => {
+    setIsConnecting(true);
     setShowBluetoothModal(false);
+
+    let cleared = false;
+    const watchdog = setTimeout(() => {
+      if (cleared) return;
+      setIsConnecting(false);
+      Alert.alert(
+        'Connection timeout',
+        'Connection is taking too long. Please turn Bluetooth off/on and try again.'
+      );
+    }, 25000);
+
+    try {
+      const result = await connectToDevice(device);
+      if (!result?.ok) return;
+    } finally {
+      cleared = true;
+      clearTimeout(watchdog);
+      setIsConnecting(false);
+    }
   };
   const handleDisconnect = () => {
     disconnect();
@@ -313,14 +331,14 @@ export default function Home() {
                       <View style={styles.translationTextContainer}>
                         <Text style={styles.translationText}>FSL to Speech</Text>
                         <Text style={styles.translationPrompt}>
-                          {modelReady ? prediction : 'Loading model...'}
+                          {displayedPrediction}
                         </Text>
                       </View>
                       <TouchableOpacity
                         style={styles.translationPlayButton}
                         onPress={() => {
-                          if (prediction && !modelLoading) {
-                            speak(prediction);
+                          if (displayedPrediction) {
+                            speak(displayedPrediction);
                           } else {
                             Alert.alert('Nothing to speak', 'No translation available yet.');
                           }

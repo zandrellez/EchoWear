@@ -13,7 +13,11 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSBluetoothAlwaysUsageDescription": "EchoWear uses Bluetooth to connect to your IoT glove device.",
+        "NSBluetoothPeripheralUsageDescription": "EchoWear uses Bluetooth to connect to your IoT glove device."
+      }
     },
     "android": {
       "adaptiveIcon": {
