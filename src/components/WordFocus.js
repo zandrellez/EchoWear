@@ -9,7 +9,8 @@ export default function WordFocus({
   word, category, categoryIcon, 
   modelSource, animationName, 
   onBack, onNext, onPrev, canNext, canPrev, 
-  wordList, currentIndex, onSelectWordFromModal 
+  wordList, currentIndex, onSelectWordFromModal,
+  savedCameraRef
 }) {
   const modelRef = useRef();
   const [animationSpeed, setAnimationSpeed] = useState(1);
@@ -23,6 +24,14 @@ export default function WordFocus({
 
   const showCharacterWatermark = category === "Alphabet" || category === "Numbers";
   const isGridModal = category === "Alphabet" || category === "Numbers";
+
+   const handleReplay = () => {
+      modelRef.current?.replay();
+      if (word) {
+         stop();
+         speak(word);
+      }
+   };
 
 //   const captureThumbnail = async () => {
 //     // 1. Request permission
@@ -63,6 +72,7 @@ export default function WordFocus({
             source={modelSource}
             animationName={animationName}
             animationSpeed={animationSpeed}
+            savedCameraRef={savedCameraRef}
          />
       </View>
 
@@ -99,14 +109,13 @@ export default function WordFocus({
 
       {/* 4. Bottom Card */}
       <View style={styles.bottomCard}>
-         <View style={styles.infoRow}>
-            {/* MAIN TITLE (Fixed size 20) */}
-            <Text style={styles.mainTitle}>{word}</Text>
-            
-            <TouchableOpacity onPress={() => setShowModal(true)}>
-               <Ionicons name="book-outline" size={24} color="#666" />
-            </TouchableOpacity>
-         </View>
+<View style={styles.infoRow}>
+   <View style={{ width: 24 }} />
+   <Text style={styles.mainTitle}>{word}</Text>
+   <TouchableOpacity onPress={() => setShowModal(true)}>
+      <Ionicons name="book-outline" size={24} color="#666" />
+   </TouchableOpacity>
+</View>
 
          <View style={styles.navRow}>
             <TouchableOpacity 
@@ -120,7 +129,7 @@ export default function WordFocus({
             
             <TouchableOpacity 
                style={styles.replayCircle}
-               onPress={() => modelRef.current?.replay()}
+               onPress={handleReplay}
             >
                <Ionicons name="refresh" size={26} color="#FFF" />
             </TouchableOpacity>
@@ -212,7 +221,7 @@ const styles = StyleSheet.create({
   infoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   
   // Main Title (Fixed size 20)
-  mainTitle: { fontSize: 20, fontWeight: 'bold', color: '#333', flex: 1, flexWrap: 'wrap' },
+mainTitle: { fontSize: 20, fontWeight: 'bold', color: '#333', flex: 1, flexWrap: 'wrap', textAlign: 'center' },
   
   navRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#F8F8F8', borderRadius: 50, padding: 5 },
   navBtn: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 20, gap: 5 },

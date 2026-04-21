@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, FlatList, Image, BackHandler, Dimensions, LogBox } from "react-native";
+import React, { useState, useEffect, useRef } from "react";
+import { View, Text, TouchableOpacity, StyleSheet, FlatList, Image, BackHandler, Dimensions, LogBox, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Asset } from "expo-asset";
 import WordFocus from "../components/WordFocus"; 
@@ -11,6 +11,9 @@ LogBox.ignoreLogs(["THREE.GLTFLoader: Couldn't load texture"]);
 // --- LAYOUT CONFIG (2 COLUMNS) ---
 const CONTAINER_PADDING = 16;
 const CARD_MARGIN = 8;
+const STORY_ITEM_WIDTH = 70;
+const STORY_ITEM_MARGIN_RIGHT = 16;
+const STORY_ITEM_TOTAL_WIDTH = STORY_ITEM_WIDTH + STORY_ITEM_MARGIN_RIGHT;
 // Calculation: (Screen Width - Container Padding) / 2 columns - Card Margins
 const CARD_WIDTH = (width - (CONTAINER_PADDING * 2)) / 2 - (CARD_MARGIN * 2);
 
@@ -68,24 +71,24 @@ const animationMap = {
   9: "Number_9",
 
   // Basic Expressions
-  // "Come here": "BE_ComeHere",
-  // "Don’t Know": "BE_DontKnow",
-  "Don’t understand": "BE_DON'TUNDERSTAND",
-  // "Excuse me": "BE_ExcuseMe",
-  "Know": "BE_KNOW",
-  // "Bless (Mano po)": "BE_BlessManoPo",
-  "No": "BE_NO",
-  // "OK": "BE_OK",
-  // "Please": "BE_Please",
-  "Sorry": "BE_SORRY",
-  // "Understand": "BE_Understand",
-  // "Uy": "BE_Uy",
-  "Wait": "BE_WAIT",
-  "What?": "BE_WHAT",
-  // "When?": "BE_When?",
-  // "Why?": "BE_Why?",
-  // "Wrong": "BE_Wrong",
-  // "Yes": "BE_Yes",
+  "Bless (Mano po)": "BE_Bless",
+  "Come here": "BE_ComeHere",
+  "Don’t Know": "BE_DontKnow",
+  "Don’t understand": "BE_DontUnderstand",
+  "Excuse me": "BE_ExcuseMe",
+  "Know": "BE_Know",
+  "No": "BE_No",
+  "OK": "BE_OK",
+  "Please": "BE_Please",
+  "Sorry": "BE_Sorry",
+  "Understand": "BE_Understand",
+  "Uy": "BE_Uy",
+  "Wait": "BE_Wait",
+  "What?": "BE_What",
+  "When?": "BE_When",
+  "Why?": "BE_Why",
+  "Wrong": "BE_Wrong",
+  "Yes": "BE_Yes",
 
   // Greetings & Farewells
   "Bye": "GaF_Bye",
@@ -146,10 +149,9 @@ const words = {
     "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"
   ],
   "Basic Expressions": [
-    // "Come here", "Don’t Know",  "Excuse me", "Bless (Mano po)", 
-    // "OK", "Please", "Understand", "Uy", , "When?", "Why?", 
-    // "Wrong", "Yes"
-    "Don’t understand", "Know",  "No", "Sorry", "Wait", "What?"
+    "Bless (Mano po)", "Come here", "Don’t Know", "Don’t understand",
+    "Excuse me", "Know", "No", "OK", "Please", "Sorry", "Understand", 
+    "Uy", "Wait", "What?", "When?", "Why?", "Wrong", "Yes"
   ],
   "Greetings & Farewells": [
     "Bye", "Good afternoon", "Good evening", "Good morning",
@@ -262,12 +264,40 @@ export default function Library() {
   const [selectedCategory, setSelectedCategory] = useState("Alphabet");
   const [selectedWordIndex, setSelectedWordIndex] = useState(null);
 
+const savedCameraRef = useRef({ theta: 1.54, phi: 1.44, radius: 1.77 });
+  const wasInFocusRef = useRef(false);
+  const categoryListRef = useRef(null);
+
   const currentWords = words[selectedCategory] || [];
   const selectedWord = selectedWordIndex !== null ? currentWords[selectedWordIndex] : null;
   const currentModelSource = categoryAssets[selectedCategory];
 
   // Get Icon for Fallback
   const currentCategoryIcon = categories.find(c => c.key === selectedCategory)?.icon || "shapes-outline";
+
+  // --- SWIPE GESTURE & SCROLL HANDLER ---
+  const scrollViewRef = useRef(null);
+  const currentCategoryIndex = categories.findIndex(c => c.key === selectedCategory);
+
+  const handleScroll = (event) => {
+    if (selectedWordIndex !== null) return; // Don't scroll when in focus mode
+    
+    const contentOffsetX = event.nativeEvent.contentOffset.x;
+    const newIndex = Math.round(contentOffsetX / width);
+    
+    if (newIndex !== currentCategoryIndex && newIndex >= 0 && newIndex < categories.length) {
+      setSelectedCategory(categories[newIndex].key);
+    }
+  };
+
+  const handleCategoryPress = (categoryKey) => {
+    setSelectedCategory(categoryKey);
+    const index = categories.findIndex(c => c.key === categoryKey);
+    scrollViewRef.current?.scrollTo({
+      x: index * width,
+      animated: true,
+    });
+  };
 
   useEffect(() => {
     // Preload Logic
@@ -289,6 +319,45 @@ export default function Library() {
     const backHandler = BackHandler.addEventListener("hardwareBackPress", backAction);
     return () => backHandler.remove();
   }, [selectedWordIndex]);
+
+  useEffect(() => {
+    if (selectedWordIndex !== null) {
+      wasInFocusRef.current = true;
+      return;
+    }
+
+    if (!wasInFocusRef.current) return;
+    wasInFocusRef.current = false;
+
+    const index = categories.findIndex((c) => c.key === selectedCategory);
+    if (index < 0) return;
+
+    requestAnimationFrame(() => {
+      scrollViewRef.current?.scrollTo({
+        x: index * width,
+        animated: false,
+      });
+
+      categoryListRef.current?.scrollToIndex({
+        index,
+        animated: false,
+        viewPosition: 0.5,
+      });
+    });
+  }, [selectedWordIndex]);
+
+  useEffect(() => {
+    const index = categories.findIndex((c) => c.key === selectedCategory);
+    if (index < 0) return;
+
+    requestAnimationFrame(() => {
+      categoryListRef.current?.scrollToIndex({
+        index,
+        animated: true,
+        viewPosition: 0.5,
+      });
+    });
+  }, [selectedCategory]);
 
   const goNext = () => {
     if (selectedWordIndex < currentWords.length - 1) setSelectedWordIndex(selectedWordIndex + 1);
@@ -314,6 +383,8 @@ export default function Library() {
         wordList={currentWords}
         currentIndex={selectedWordIndex}
         onSelectWordFromModal={(index) => setSelectedWordIndex(index)}
+
+        savedCameraRef={savedCameraRef}
       />
     );
   }
@@ -328,16 +399,29 @@ export default function Library() {
       {/* Categories: "Story Style" Circles */}
       <View style={styles.categoryContainer}>
         <FlatList
+          ref={categoryListRef}
           data={categories}
           horizontal
+          scrollEnabled={true}
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={{ paddingHorizontal: 10 }}
+          getItemLayout={(_, index) => ({
+            length: STORY_ITEM_TOTAL_WIDTH,
+            offset: STORY_ITEM_TOTAL_WIDTH * index,
+            index,
+          })}
+          onScrollToIndexFailed={({ index }) => {
+            categoryListRef.current?.scrollToOffset({
+              offset: STORY_ITEM_TOTAL_WIDTH * index,
+              animated: true,
+            });
+          }}
           renderItem={({ item }) => {
             const isActive = selectedCategory === item.key;
             return (
               <TouchableOpacity 
                 style={styles.storyItem} 
-                onPress={() => setSelectedCategory(item.key)}
+                onPress={() => handleCategoryPress(item.key)}
                 activeOpacity={0.7}
               >
                 {/* Circle Container */}
@@ -359,53 +443,67 @@ export default function Library() {
         />
       </View>
 
-      {/* Word Grid - 2 Columns */}
-      <FlatList 
-        data={currentWords}
-        keyExtractor={(item) => item}
-        numColumns={2} // <--- CHANGED TO 2
-        contentContainerStyle={{ padding: CONTAINER_PADDING }}
-        ListEmptyComponent={
-            <View style={{padding: 20, alignItems: 'center'}}>
-                <Text style={{color: '#999'}}>No words in this category yet.</Text>
-            </View>
-        }
-        renderItem={({ item, index }) => {
-          // 1. Check if a thumbnail exists for this word/letter
-          const thumbnailSource = modelThumbnails[item];
-
+      {/* Horizontal Scrollable Word Grid - One "page" per category */}
+      <ScrollView
+        ref={scrollViewRef}
+        horizontal
+        pagingEnabled
+        nestedScrollEnabled={true}
+        showsHorizontalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onScroll={handleScroll}
+        style={styles.scrollContainer}
+      >
+        {categories.map((category) => {
+          const categoryWords = words[category.key] || [];
           return (
-            <TouchableOpacity 
-               style={styles.wordCard} 
-               onPress={() => setSelectedWordIndex(index)}
-            >
-              <View style={styles.cardInner}>
-                 {thumbnailSource ? (
-                    // 2. IF THUMBNAIL EXISTS: Show the Image
-                    <Image 
-                      source={thumbnailSource} 
-                      style={styles.thumbnailImage} 
-                      resizeMode="contain" 
-                    />
-                 ) : (
-                    // 3. FALLBACK: Show the old Icon/Letter circle
-                    <View style={styles.iconFallback}>
-                        {item.length < 5 ? (
-                            <Text style={styles.wordLetter}>{item.charAt(0)}</Text>
+            <View key={category.key} style={{ width, paddingHorizontal: CONTAINER_PADDING }}>
+              <FlatList
+                data={categoryWords}
+                keyExtractor={(item) => item}
+                numColumns={2}
+                scrollEnabled={true}
+                contentContainerStyle={{ paddingTop: CONTAINER_PADDING, paddingBottom: CONTAINER_PADDING }}
+                ListEmptyComponent={
+                  <View style={{ padding: 20, alignItems: 'center' }}>
+                    <Text style={{ color: '#999' }}>No words in this category yet.</Text>
+                  </View>
+                }
+                renderItem={({ item, index }) => {
+                  const thumbnailSource = modelThumbnails[item];
+                  return (
+                    <TouchableOpacity
+                      style={styles.wordCard}
+                      onPress={() => setSelectedWordIndex(index)}
+                    >
+                      <View style={styles.cardInner}>
+                        {thumbnailSource ? (
+                          <Image
+                            source={thumbnailSource}
+                            style={styles.thumbnailImage}
+                            resizeMode="contain"
+                          />
                         ) : (
-                            <Ionicons name={currentCategoryIcon} size={32} color="#E64C3C" />
+                          <View style={styles.iconFallback}>
+                            {item.length < 5 ? (
+                              <Text style={styles.wordLetter}>{item.charAt(0)}</Text>
+                            ) : (
+                              <Ionicons name={currentCategoryIcon} size={32} color="#E64C3C" />
+                            )}
+                          </View>
                         )}
-                    </View>
-                 )}
-              </View>
-              
-              <Text style={styles.wordLabel} numberOfLines={3}>
-                {item}
-              </Text>
-            </TouchableOpacity>
+                      </View>
+                      <Text style={styles.wordLabel} numberOfLines={3}>
+                        {item}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                }}
+              />
+            </View>
           );
-        }}
-      />
+        })}
+      </ScrollView>
     </View>
   );
 }
@@ -415,9 +513,12 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: 20, marginBottom: 10 },
   headerText: { fontSize: 28, fontWeight: "bold", color: "#333" },
   
-categoryContainer: { 
+  categoryContainer: { 
     height: 100, // Taller to fit circle + text
     marginBottom: 10 
+  },
+  scrollContainer: {
+    flex: 1,
   },
   storyItem: { 
     alignItems: 'center', 

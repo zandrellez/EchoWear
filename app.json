@@ -29,7 +29,16 @@
         "BLUETOOTH_SCAN",
         "ACCESS_FINE_LOCATION",
         "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE"
+        "WRITE_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
+        "android.permission.ACCESS_MEDIA_LOCATION",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_MEDIA_AUDIO"
       ]
     },
     "web": {
@@ -37,7 +46,7 @@
     },
     "extra": {
       "eas": {
-        "projectId": "a9c8ce2e-cfed-4a87-abce-58c6134a2f05"
+        "projectId": "81ed1cd0-3c77-40f4-b26d-5a5c1a4b906a"
       }
     },
     "plugins": [
@@ -70,6 +79,7 @@
     ],
     "assetBundlePatterns": [
       "**/*"
-    ]
+    ],
+    "owner": "hakulangtohguyz"
   }
 }

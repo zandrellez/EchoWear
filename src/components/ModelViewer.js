@@ -1,5 +1,5 @@
 import React, { useRef, useImperativeHandle, forwardRef, useState, useEffect } from "react";
-import { PanResponder, View, ActivityIndicator } from "react-native";
+import { PanResponder, View, ActivityIndicator, Dimensions, Text } from "react-native";
 import { GLView } from "expo-gl";
 import { Renderer } from "expo-three";
 import * as THREE from "three";
@@ -13,7 +13,7 @@ const TRAIL_LENGTH = 0;   // Number of frames the trail lasts
 const TRAIL_COLOR = "#E53935"; 
 
 const ModelViewer = forwardRef(function ModelViewer(
-  { source, animationName, animationSpeed = 1, rotationSpeed = 0, offset = { x: 0, y: -1.3 } },
+  { source, animationName, animationSpeed = 1, rotationSpeed = 0, offset = { x: 0, y: -1.3 }, savedCameraRef },
   ref
 ) {
   const sceneRef = useRef(null);
@@ -24,6 +24,14 @@ const ModelViewer = forwardRef(function ModelViewer(
   const cameraRef = useRef();
   const glRef = useRef(null);
 
+  // --- ORBIT STATE REFS ---
+  const orbitState = useRef({
+    theta: savedCameraRef?.current?.theta ?? (Math.PI / 2),
+    phi: savedCameraRef?.current?.phi ?? (Math.PI / 2),
+    radius: savedCameraRef?.current?.radius ?? 3,
+    target: new THREE.Vector3(0, 1.10, 0), 
+  });
+
   // --- TRAIL REFS ---
   const trailMeshRef = useRef(null);
   const trailPointsRef = useRef([]); 
@@ -31,6 +39,18 @@ const ModelViewer = forwardRef(function ModelViewer(
 
   const [loading, setLoading] = useState(true);
   const [glContextCreated, setGlContextCreated] = useState(false);
+
+  const updateCameraPosition = () => {
+    if (!cameraRef.current) return;
+    const { theta, phi, radius, target } = orbitState.current;
+
+    // Convert Spherical to Cartesian coordinates
+    cameraRef.current.position.x = target.x + radius * Math.sin(phi) * Math.cos(theta);
+    cameraRef.current.position.y = target.y + radius * Math.cos(phi);
+    cameraRef.current.position.z = target.z + radius * Math.sin(phi) * Math.sin(theta);
+    
+    cameraRef.current.lookAt(target);
+  };
 
   const onContextCreate = async (gl) => {
     glRef.current = gl;
@@ -41,12 +61,11 @@ const ModelViewer = forwardRef(function ModelViewer(
     const scene = new THREE.Scene();
     sceneRef.current = scene;
 
-    // --- CAMERA SETUP ---
-    const camera = new THREE.PerspectiveCamera(75, gl.drawingBufferWidth / gl.drawingBufferHeight, 0.1, 1000);
-    camera.position.set(0, 1.0, 2.2); // Zoomed in slightly
-    camera.lookAt(0, 1.0, 0);         // Look at chest area
+// --- CAMERA SETUP ---
+    const camera = new THREE.PerspectiveCamera(50, gl.drawingBufferWidth / gl.drawingBufferHeight, 0.1, 1000);
     cameraRef.current = camera;
-
+    updateCameraPosition();
+    
     // --- LIGHTING ---
     const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
     scene.add(ambientLight);
@@ -84,7 +103,6 @@ const ModelViewer = forwardRef(function ModelViewer(
       const delta = clock.getDelta();
       
       if (mixerRef.current) mixerRef.current.update(delta);
-      if (modelRef.current && rotationSpeed !== 0) modelRef.current.rotation.y += rotationSpeed;
 
       // --- TRAIL UPDATE LOGIC ---
       if (handBoneRef.current && trailMeshRef.current && currentActionRef.current?.isRunning() && animationSpeed > 0) {
@@ -162,7 +180,7 @@ const ModelViewer = forwardRef(function ModelViewer(
 
         // Setup Model transform
         model.scale.set(1.7, 1.7, 1.7);
-        model.position.set(0, 0, 0);
+        model.position.set(0.2, 0, 0);
         model.position.y += offset.y;
         if(offset.x) model.position.x += offset.x;
 
@@ -258,7 +276,7 @@ const ModelViewer = forwardRef(function ModelViewer(
     }
   }));
 
-  // --- TOUCH CONTROLS ---
+// --- TOUCH CONTROLS ---
   const lastTouchDistanceRef = useRef(null);
   const panResponder = useRef(
     PanResponder.create({
@@ -266,24 +284,47 @@ const ModelViewer = forwardRef(function ModelViewer(
       onMoveShouldSetPanResponder: () => true,
       onPanResponderMove: (evt, gestureState) => {
         const touches = evt.nativeEvent.touches;
-        if (touches.length === 2 && cameraRef.current) {
-           const [t1, t2] = touches;
-           const dist = Math.hypot(t1.pageX - t2.pageX, t1.pageY - t2.pageY);
-           if (lastTouchDistanceRef.current !== null) {
-              const delta = (dist - lastTouchDistanceRef.current) * 0.005; 
-              cameraRef.current.position.z -= delta;
-           }
-           lastTouchDistanceRef.current = dist;
-        } else if (touches.length === 1 && modelRef.current) {
-           modelRef.current.rotation.y += gestureState.dx * 0.005;
+
+        if (touches.length === 1) {
+          // ROTATION (Orbit)
+          const screenScale = 0.002; 
+          orbitState.current.theta += gestureState.dx * screenScale;
+          orbitState.current.phi -= gestureState.dy * screenScale;
+
+          // Constraints: Prevent flipping over the top/bottom
+          orbitState.current.phi = Math.max(0.1, Math.min(Math.PI - 0.1, orbitState.current.phi));
+          
+          if (savedCameraRef) {
+              savedCameraRef.current.theta = orbitState.current.theta;
+              savedCameraRef.current.phi = orbitState.current.phi;
+          }
+
+          updateCameraPosition();
+        } 
+        else if (touches.length === 2) {
+          // ZOOM (Pinch)
+          const dist = Math.hypot(touches[0].pageX - touches[1].pageX, touches[0].pageY - touches[1].pageY);
+          if (lastTouchDistanceRef.current !== null) {
+            const delta = (dist - lastTouchDistanceRef.current) * 0.01;
+            orbitState.current.radius = Math.max(1, Math.min(10, orbitState.current.radius - delta));
+            
+            if (savedCameraRef) {
+                savedCameraRef.current.radius = orbitState.current.radius;
+            }
+
+            updateCameraPosition();
+          }
+          lastTouchDistanceRef.current = dist;
         }
       },
-      onPanResponderRelease: () => { lastTouchDistanceRef.current = null; },
+      onPanResponderRelease: () => { 
+          lastTouchDistanceRef.current = null; 
+      },
     })
   ).current;
 
   return (
-    <View style={{flex: 1}}>
+    <View style={{flex: 1}}>      
       {loading && (
         <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, justifyContent: "center", alignItems: "center", zIndex: 10 }}>
           <ActivityIndicator size="large" color="#E64C3C" />
